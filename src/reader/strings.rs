@@ -1,11 +1,12 @@
 use result::*;
-use std::iter::IntoIterator;
+use std::iter::{Iterator, Map};
 use std::slice::Iter;
+use std::io;
 use types::*;
 use lisp;
 
-pub trait ReadString<V: IntoIterator<Item=u8>> {
-    fn read_string(&mut self, open: u8, iter: &mut V::IntoIter)
+pub trait ReadString<V: Iterator<Item=u8>> {
+    fn read_string(&mut self, open: u8, iter: &mut V)
                    -> Result<Object> {
         let mut string = Vec::new();
         while let Some(byte) = iter.next() {
@@ -39,4 +40,4 @@ pub trait ReadString<V: IntoIterator<Item=u8>> {
     }
 }
 
-impl ReadString<Vec<u8>> for lisp::Lisp {}
+impl<'read> ReadString<super::StdioIter<'read>> for lisp::Lisp {}

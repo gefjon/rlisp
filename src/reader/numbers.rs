@@ -1,13 +1,14 @@
 use result::*;
 use std::str::{FromStr};
-use std::iter::{Iterator, IntoIterator};
+use std::iter::{Iterator, IntoIterator, Map};
 use std::slice::Iter;
+use std::io;
 use types::*;
 use lisp;
 use super::WHITESPACE;
 
-pub trait ReadNumber<V: IntoIterator<Item=u8>> {
-    fn read_number(&mut self, peek: u8, iter: &mut V::IntoIter)
+pub trait ReadNumber<V: Iterator<Item=u8>> {
+    fn read_number(&mut self, peek: u8, iter: &mut V)
                    -> Result<(Object, Option<u8>)> {
         let mut num = vec![peek];
         while let Some(byte) = iter.next() {
@@ -31,4 +32,4 @@ pub trait ReadNumber<V: IntoIterator<Item=u8>> {
     }
 }
 
-impl ReadNumber<Vec<u8>> for lisp::Lisp {}
+impl<'read> ReadNumber<super::StdioIter<'read>> for lisp::Lisp {}

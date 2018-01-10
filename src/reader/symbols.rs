@@ -1,12 +1,13 @@
 use result::*;
-use std::iter::{Iterator, IntoIterator};
+use std::iter::{Iterator, IntoIterator, Map};
 use std::slice::Iter;
+use std::io;
 use types::*;
 use lisp;
 use super::WHITESPACE;
 
-pub trait ReadSymbol<V: IntoIterator<Item=u8>>: lisp::Symbols {
-    fn read_symbol(&mut self, peek: u8, iter: &mut V::IntoIter)
+pub trait ReadSymbol<V: Iterator<Item=u8>>: lisp::Symbols {
+    fn read_symbol(&mut self, peek: u8, iter: &mut V)
                    -> Result<(Object, Option<u8>)> {
         let mut sym = vec![peek];
         while let Some(byte) = iter.next() {
@@ -29,4 +30,4 @@ pub trait ReadSymbol<V: IntoIterator<Item=u8>>: lisp::Symbols {
     }
 }
 
-impl ReadSymbol<Vec<u8>> for lisp::Lisp {}
+impl<'read> ReadSymbol<super::StdioIter<'read>> for lisp::Lisp {}

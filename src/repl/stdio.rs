@@ -2,33 +2,52 @@ use result::*;
 use std::io;
 use std::io::prelude::*;
 use super::Rep;
+use lisp::Lisp;
 
-pub trait StdIoRepl: Rep<Vec<u8>> {
-    fn read_from_stdin() -> Result<Vec<u8>> {
-        Self::write_to_stdout("lisp> ")?;
-        let stdin = io::stdin();
-        let mut input = String::new();
-        stdin.read_line(&mut input)?;
-        Ok(input.into_bytes())
+pub struct StdIoRepl {
+    lisp: Lisp,
+}
+
+impl StdIoRepl {
+    pub fn new() -> Self {
+        Self {
+            lisp: Lisp::new(),
+        }
     }
-    fn write_to_stdout(to_write: &str) -> Result<()> {
-        let mut stdout = io::stdout();
+    fn prompt(stdout: &mut io::StdoutLock) -> Result<()> {
+        stdout.write(b"lisp> ")?;
+        stdout.flush()?;
+        Ok(())
+    }
+    fn write_to_stdout(to_write: &str, stdout: &mut io::StdoutLock)
+                       -> Result<()> {
         stdout.write(to_write.as_bytes())?;
         stdout.flush()?;
         Ok(())
     }
-    fn write_to_stderr(err: Vec<u8>) -> Result<()> {
+    fn write_to_stderr(err: &str) -> Result<()> {
         let mut stderr = io::stderr();
-        stderr.write(&err)?;
+        stderr.write(err.as_bytes())?;
         stderr.flush()?;
         Ok(())
     }
-    fn repl(&mut self) -> Result<()> {
+    pub fn repl(&mut self) -> Result<()> {
+        let stdin = io::stdin();
+        let lock = stdin.lock();
+        let unwrap_ptr: fn(::std::result::Result<u8, _>) -> u8 = ::std::result::Result::<u8, _>::unwrap;
+        let mut iter = lock.bytes().map(unwrap_ptr);
+
+        let stdout = io::stdout();
+        let mut stdoutlock = stdout.lock();
+        
         'repl: loop {
-            let input = Self::read_from_stdin()?;
-            Self::write_to_stdout(&<Self as Rep<Vec<u8>>>::rep(self, input)?)?;
+            Self::prompt(&mut stdoutlock)?;
+            let result = <Lisp as Rep<::reader::StdioIter>>
+                ::rep(&mut self.lisp, &mut iter);
+            match result {
+                Ok(output) => Self::write_to_stdout(&output, &mut stdoutlock)?,
+                Err(err) => Self::write_to_stderr(&format!("{}", err))?,
+            }
         }
     }
 }
-
-impl StdIoRepl for ::lisp::Lisp {}

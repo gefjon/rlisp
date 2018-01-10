@@ -1,8 +1,9 @@
 use lisp;
 use list;
 use result::*;
-use std::iter::{Iterator, IntoIterator};
+use std::iter::{Iterator, IntoIterator, Map};
 use std::slice::Iter;
+use std::io;
 use types::*;
 
 mod numbers;
@@ -13,24 +14,20 @@ use self::strings::ReadString;
 
 const WHITESPACE: [u8; 3] = [b' ', b'\t', b'\n'];
 
+pub type StdioIter<'read> = Map<io::Bytes<io::StdinLock<'read>>, fn(::std::result::Result<u8, io::Error>) -> u8>;
 
 pub trait Reader<V>: numbers::ReadNumber<V> +
     strings::ReadString<V> +
     symbols::ReadSymbol<V> +
     lisp::Symbols
-    where V: IntoIterator<Item=u8>
+    where V: Iterator<Item=u8>
 {
-    fn read(&mut self, input: V) -> Result<Object> {
-        let iter = &mut input.into_iter();
-        
-        let mut top_level_forms: Vec<Object> = Vec::new();
-        while let (Some(form), _) = self.read_form(iter)? {
-            top_level_forms.push(form);
-        }
-        Ok(list::from_vec(top_level_forms))
+    fn read(&mut self, input: &mut V) -> Result<Option<Object>> {
+        let (opt_form, _) = self.read_form(input)?;
+        Ok(opt_form)
     }
     
-    fn read_from_char(&mut self, byte: u8, iter: &mut V::IntoIter)
+    fn read_from_char(&mut self, byte: u8, iter: &mut V)
                       -> Result<(Option<Object>, Option<u8>)> {
         match byte {
             peek @ b'0' ... b'9' => {
@@ -53,7 +50,7 @@ pub trait Reader<V>: numbers::ReadNumber<V> +
         }
     }
     
-    fn read_form(&mut self, iter: &mut V::IntoIter)
+    fn read_form(&mut self, iter: &mut V)
                     -> Result<(Option<Object>, Option<u8>)> {
         if let Some(byte) = iter.next() {
             self.read_from_char(byte, iter)
@@ -62,7 +59,7 @@ pub trait Reader<V>: numbers::ReadNumber<V> +
         }
     }
     
-    fn read_list(&mut self, iter: &mut V::IntoIter) -> Result<Object> {
+    fn read_list(&mut self, iter: &mut V) -> Result<Object> {
         let mut elems = Vec::new();
         while let Some(byte) = iter.next() {
             match byte {
@@ -86,4 +83,5 @@ pub trait Reader<V>: numbers::ReadNumber<V> +
     }
 }
 
-impl Reader<Vec<u8>> for ::lisp::Lisp {}
+impl<'read> Reader<StdioIter<'read>> for ::lisp::Lisp {}
+
