@@ -33,7 +33,7 @@ impl fmt::Display for Object {
             Object::Num(ref n) => write!(f, "{}", n),
             Object::Sym(ref s) => write!(f, "{}", s),
             Object::Cons(ref c) => write!(f, "{}", c),
-            Object::String(ref s) => write!(f, "{}", s),
+            Object::String(ref s) => write!(f, "\"{}\"", s),
         }
     }
 }
