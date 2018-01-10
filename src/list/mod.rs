@@ -12,7 +12,7 @@ pub fn improper_from_vec(mut elems: Vec<Object>) -> Object {
             return Object::nil();
         };
         for el in drain {
-            head = ConsCell::new(el, head);
+            head = Object::cons(el, head);
         }
         head
     }
@@ -23,7 +23,7 @@ pub fn from_vec(mut elems: Vec<Object>) -> Object {
     elems.reverse();
     let mut head = Object::nil();
     for el in elems.drain(..) {
-        head = ConsCell::new(el, head);
+        head = Object::cons(el, head);
     }
     head
 }
@@ -53,7 +53,7 @@ impl<'cons> ConsIterator<'cons> {
             ConsIteratorResult::More(&self.car)
         } else {
             match self.cdr {
-                &Object::Collection(Collections::Cons(ref next)) => {
+                &Object::Cons(ref next) => {
                     self.car = &next.car;
                     self.cdr = &next.cdr;
                     ConsIteratorResult::More(&self.car)

@@ -1,4 +1,5 @@
 mod symbols_table;
+pub use self::symbols_table::Symbols;
 
 pub struct Lisp {
     pub symbols: symbols_table::SymbolsTab,

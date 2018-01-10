@@ -9,11 +9,18 @@ mod result {
         foreign_links {
             Io(::std::io::Error);
             Fmt(::std::fmt::Error);
+            ParseFloat(::std::num::ParseFloatError);
+            ParseInt(::std::num::ParseIntError);
+            Utf8(::std::string::FromUtf8Error);
         }
         errors {
             UnclosedList {
                 description("met EOF before a list was closed"),
                 display("met EOF before a list was closed"),
+            }
+            UnclosedString {
+                description("met EOF before a string was closed"),
+                display("met EOF before a string was closed"),
             }
         }
     }
@@ -21,7 +28,7 @@ mod result {
 
 mod reader;
 pub mod types;
-mod repl;
+pub mod repl;
 pub mod lisp;
 pub mod list;
 

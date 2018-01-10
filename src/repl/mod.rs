@@ -1,37 +1,37 @@
 use result::*;
-
 use lisp::Lisp;
+use types::*;
+use std::convert::{From};
+use std::iter::IntoIterator;
 
-pub trait Rep {
-    type Input;
-    type Output;
+pub mod stdio;
+
+pub trait Rep<V: IntoIterator<Item=u8>>: ::reader::Reader<V> {
     type Read;
     type Evaled;
 
-    fn read(&self, input: Self::Input) -> Result<Self::Read>;
+    fn read(&mut self, input: V) -> Result<Self::Read>;
     fn eval(&mut self, read: Self::Read) -> Result<Self::Evaled>;
-    fn print(&self, evaled: Self::Evaled) -> Result<Self::Output>;
-    fn rep(&mut self, input: Self::Input) -> Result<Self::Output> {
-        let read = self.read(input)?;
+    fn print(&self, evaled: Self::Evaled) -> Result<String>;
+    fn rep(&mut self, input: V) -> Result<String> {
+        let read = <Self as Rep<V>>::read(self, input)?;
         let evaled = self.eval(read)?;
         self.print(evaled)
     }
 }
 
-impl Rep for Lisp {
-    type Input = String;
-    type Output = String;
-    type Read = String;
-    type Evaled = String;
+impl Rep<Vec<u8>> for Lisp {
+    type Read = Object;
+    type Evaled = Object;
 
-    fn read(&self, input: Self::Input) -> Result<Self::Read> {
-        Ok(input)
+    fn read(&mut self, input: Vec<u8>) -> Result<Self::Read> {
+        <Self as ::reader::Reader<Vec<u8>>>::read(self, input)
     }
     fn eval(&mut self, read: Self::Read) -> Result<Self::Evaled> {
         Ok(read)
     }
-    fn print(&self, evaled: Self::Evaled) -> Result<Self::Output> {
-        Ok(evaled)
+    fn print(&self, evaled: Self::Evaled) -> Result<String> {
+        Ok(format!("{}\n", evaled))
     }
 }
 

@@ -1,5 +1,11 @@
 use std::collections::HashMap;
 use types::*;
+use lisp::Lisp;
+
+pub trait Symbols {
+    fn intern<T>(&mut self, sym: T) -> &Symbol
+        where ::std::string::String: ::std::convert::From<T>;
+}
 
 pub struct SymbolsTab {
     map: HashMap<String, Symbol>,
@@ -11,10 +17,12 @@ impl SymbolsTab {
             map: HashMap::new(),
         }
     }
-    pub fn intern_str(&mut self, sym: &str) -> &Symbol {
-        self.intern(String::from(sym))
-    }
-    pub fn intern(&mut self, sym: String) -> &Symbol {
+}
+
+impl Symbols for SymbolsTab {
+    fn intern<T>(&mut self, sym: T) -> &Symbol
+    where ::std::string::String: ::std::convert::From<T> {
+        let sym = String::from(sym);
         if !self.map.contains_key(&sym) {
             let new_symbol = Symbol::from_string(sym.clone());
             let _ = self.map.insert(sym.clone(), new_symbol);
@@ -24,5 +32,12 @@ impl SymbolsTab {
         } else {
             unreachable!()
         }
+    }
+}
+
+impl Symbols for Lisp {
+    fn intern<T>(&mut self, sym: T) -> &Symbol
+    where ::std::string::String: ::std::convert::From<T> {
+        self.symbols.intern(sym)
     }
 }

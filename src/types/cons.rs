@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use std::fmt;
 use list;
-use super::{Object, Collections};
+use super::{Object};
 
 #[derive(Clone)]
 pub struct ConsCell {
@@ -10,12 +10,11 @@ pub struct ConsCell {
 }
 
 impl ConsCell {
-    pub fn new(car: Object, cdr: Object) -> Object {
-        Object::Collection(Collections::Cons(Rc::new(
-            Self {
-                car: car,
-                cdr: cdr,
-            })))
+    pub fn new(car: Object, cdr: Object) -> Self {
+        Self {
+            car: car,
+            cdr: cdr,
+        }
     }
 }
 
