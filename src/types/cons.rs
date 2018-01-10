@@ -1,4 +1,3 @@
-use std::rc::Rc;
 use std::fmt;
 use list;
 use super::{Object};

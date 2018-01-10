@@ -1,7 +1,5 @@
 use result::*;
-use std::iter::{Iterator, Map};
-use std::slice::Iter;
-use std::io;
+use std::iter::Iterator;
 use types::*;
 use lisp;
 

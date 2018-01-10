@@ -1,8 +1,6 @@
 use std::rc::Rc;
 use std::fmt;
 use std::cmp::{PartialEq, Eq};
-use types::Object;
-use std::convert;
 
 #[derive(Clone)]
 pub struct Symbol {

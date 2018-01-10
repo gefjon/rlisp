@@ -1,8 +1,6 @@
 use result::*;
 use lisp::Lisp;
 use types::*;
-use std::io;
-use std::iter::{IntoIterator, Map};
 
 pub mod stdio;
 
