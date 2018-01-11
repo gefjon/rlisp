@@ -1,63 +1,69 @@
 use types::*;
+use lisp;
 
-pub fn improper_from_vec(mut elems: Vec<Object>) -> Object {
-    if elems.is_empty() {
-        Object::nil()
-    } else {
-        elems.reverse();
-        let mut drain = elems.drain(..);
-        let mut head = if let Some(obj) = drain.next() {
-            obj
+pub trait ListOps: lisp::Store<ConsCell> {
+    fn list_improper_from_vec(&mut self, mut elems: Vec<Object>) -> Object {
+        if elems.is_empty() {
+            Object::nil()
         } else {
-            return Object::nil();
-        };
-        for el in drain {
-            head = Object::cons(el, head);
+            elems.reverse();
+            let mut drain = elems.iter();
+            let mut head = if let Some(obj) = drain.next() {
+                *obj
+            } else {
+                return Object::nil();
+            };
+            for el in drain {
+                head = self.store(ConsCell::new(*el, head));
+            }
+            head
+        }
+    }
+
+    fn list_from_vec(&mut self, mut elems: Vec<Object>) -> Object {
+        elems.reverse();
+        let mut head = Object::nil();
+        for el in &elems {
+            head = self.store(ConsCell::new(*el, head));
         }
         head
     }
 }
 
-pub fn from_vec(mut elems: Vec<Object>) -> Object {
-    elems.reverse();
-    let mut head = Object::nil();
-    for el in elems.drain(..) {
-        head = Object::cons(el, head);
-    }
-    head
-}
+impl ListOps for lisp::Lisp {}
+
 pub fn iter(list: &ConsCell) -> ConsIterator {
     ConsIterator {
-        car: &list.car,
-        cdr: &list.cdr,
+        car: list.car,
+        cdr: list.cdr,
         first: true,
     }
 }
 
-pub struct ConsIterator<'cons> {
-    car: &'cons Object,
-    cdr: &'cons Object,
+pub struct ConsIterator {
+    car: Object,
+    cdr: Object,
     first: bool,
 }
 
-pub enum ConsIteratorResult<'a, T: 'a> {
-    More(&'a T),
-    Final(Option<&'a T>),
+pub enum ConsIteratorResult<T> {
+    More(T),
+    Final(Option<T>),
 }
 
-impl<'cons> ConsIterator<'cons> {
-    pub fn improper_next(&mut self) -> ConsIteratorResult<'cons, Object> {
+impl ConsIterator {
+    pub fn improper_next(&mut self) -> ConsIteratorResult<Object> {
         if self.first {
             self.first = false;
             ConsIteratorResult::More(self.car)
         } else {
             match self.cdr {
-                &Object::Cons(ref next) => {
-                    self.car = &next.car;
-                    self.cdr = &next.cdr;
+                Object::Cons(next) => {
+                    self.car = unsafe { (*next).car };
+                    self.cdr = unsafe { (*next).cdr };
                     ConsIteratorResult::More(self.car)
                 }
-                &Object::Nil => ConsIteratorResult::Final(None),
+                Object::Nil => ConsIteratorResult::Final(None),
                 other => ConsIteratorResult::Final(Some(other)),
             }
         }

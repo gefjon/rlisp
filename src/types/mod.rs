@@ -1,4 +1,3 @@
-use std::rc::Rc;
 use std::fmt;
 use std::convert;
 
@@ -8,12 +7,12 @@ pub use self::symbol::Symbol;
 pub mod cons;
 pub use self::cons::ConsCell;
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub enum Object {
-    Cons(Rc<ConsCell>),
+    Cons(*const ConsCell),
     Num(f64),
-    Sym(Symbol),
-    String(Rc<String>),
+    Sym(*const Symbol),
+    String(*const String),
     Nil,
 }
 
@@ -21,37 +20,34 @@ impl Object {
     pub fn nil() -> Self {
         Object::Nil
     }
-    pub fn cons(car: Object, cdr: Object) -> Self {
-        Object::Cons(Rc::new(ConsCell::new(car, cdr)))
-    }
 }
 
 impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Object::Nil => write!(f, "nil"),
-            Object::Num(ref n) => write!(f, "{}", n),
-            Object::Sym(ref s) => write!(f, "{}", s),
-            Object::Cons(ref c) => write!(f, "{}", c),
-            Object::String(ref s) => write!(f, "\"{}\"", s),
+            Object::Num(n) => write!(f, "{}", n),
+            Object::Sym(s) => unsafe { write!(f, "{}", *s) },
+            Object::Cons(c) => unsafe { write!(f, "{}", *c) },
+            Object::String(s) => unsafe { write!(f, "\"{}\"", *s) },
         }
     }
 }
 
-impl convert::From<String> for Object {
-    fn from(string: String) -> Self {
-        Object::String(Rc::new(string))
+impl convert::From<*const String> for Object {
+    fn from(string: *const String) -> Self {
+        Object::String(string)
     }
 }
 
-impl convert::From<ConsCell> for Object {
-    fn from(cons: ConsCell) -> Self {
-        Object::Cons(Rc::new(cons))
+impl convert::From<*const ConsCell> for Object {
+    fn from(cons: *const ConsCell) -> Self {
+        Object::Cons(cons)
     }
 }
 
-impl convert::From<Symbol> for Object {
-    fn from(sym: Symbol) -> Self {
+impl convert::From<*const Symbol> for Object {
+    fn from(sym: *const Symbol) -> Self {
         Object::Sym(sym)
     }
 }

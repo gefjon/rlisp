@@ -22,6 +22,8 @@ pub trait Reader<V>
     + symbols::ReadSymbol<V>
     + lisp::Symbols
     + lisp::MacroChars
+    + lisp::Store<ConsCell>
+    + list::ListOps
 where
     V: Iterator<Item = u8>,
 {
@@ -56,14 +58,14 @@ where
     fn read_from_char(&mut self, byte: u8, iter: &mut V) -> Result<(Option<Object>, Option<u8>)> {
         let symbol = {
             if let Some(sym) = self.check_macro_char(byte) {
-                Some(sym.clone())
+                Some(sym)
             } else {
                 None
             }
         };
         if let Some(symbol) = symbol {
             if let (Some(obj), peek) = self.read_form(iter)? {
-                Ok((Some(list::from_vec(vec![symbol.into(), obj])), peek))
+                Ok((Some(self.list_from_vec(vec![symbol, obj])), peek))
             } else {
                 Err(ErrorKind::UnexpectedEOF.into())
             }
@@ -86,7 +88,7 @@ where
         while let Some(byte) = iter.next() {
             match byte {
                 b')' => {
-                    return Ok(list::from_vec(elems));
+                    return Ok(self.list_from_vec(elems));
                 }
                 _ => {
                     let (opt_el, opt_byte) = self.read_from_char(byte, iter)?;
@@ -96,7 +98,7 @@ where
                         return Err(ErrorKind::UnclosedList.into());
                     }
                     if let Some(b')') = opt_byte {
-                        return Ok(list::from_vec(elems));
+                        return Ok(self.list_from_vec(elems));
                     }
                 }
             }

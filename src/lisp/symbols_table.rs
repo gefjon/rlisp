@@ -4,7 +4,7 @@ use types::*;
 use lisp::Lisp;
 
 pub trait Symbols {
-    fn intern<T>(&mut self, sym: T) -> &Symbol
+    fn intern<T>(&mut self, sym: T) -> Object
     where
         ::std::string::String: ::std::convert::From<T>;
 }
@@ -22,7 +22,7 @@ impl Default for SymbolsTab {
 }
 
 impl Symbols for SymbolsTab {
-    fn intern<T>(&mut self, sym: T) -> &Symbol
+    fn intern<T>(&mut self, sym: T) -> Object
     where
         ::std::string::String: ::std::convert::From<T>,
     {
@@ -32,7 +32,7 @@ impl Symbols for SymbolsTab {
             let _ = self.map.insert(sym.clone(), new_symbol);
         }
         if let Some(symbol) = self.map.get(&sym) {
-            symbol
+            Object::Sym(symbol as *const Symbol)
         } else {
             unreachable!()
         }
@@ -40,7 +40,7 @@ impl Symbols for SymbolsTab {
 }
 
 impl Symbols for Lisp {
-    fn intern<T>(&mut self, sym: T) -> &Symbol
+    fn intern<T>(&mut self, sym: T) -> Object
     where
         ::std::string::String: ::std::convert::From<T>,
     {

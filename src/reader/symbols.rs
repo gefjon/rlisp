@@ -26,7 +26,7 @@ pub trait ReadSymbol<V: Iterator<Item = u8>>: lisp::Symbols {
         end_char: Option<u8>,
     ) -> Result<(Object, Option<u8>)> {
         let sym_str = String::from_utf8(sym)?;
-        Ok((self.intern(sym_str).clone().into(), end_char))
+        Ok((self.intern(sym_str), end_char))
     }
 }
 
