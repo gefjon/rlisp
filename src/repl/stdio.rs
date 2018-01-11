@@ -11,7 +11,9 @@ pub struct StdIoRepl {
 
 impl Default for StdIoRepl {
     fn default() -> Self {
-        Self { lisp: Lisp::default() }
+        Self {
+            lisp: Lisp::default(),
+        }
     }
 }
 
