@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::default::Default;
 use types::*;
 use lisp::Lisp;
 
@@ -12,8 +13,8 @@ pub struct SymbolsTab {
     map: HashMap<String, Symbol>,
 }
 
-impl SymbolsTab {
-    pub fn new() -> Self {
+impl Default for SymbolsTab {
+    fn default() -> Self {
         SymbolsTab {
             map: HashMap::new(),
         }

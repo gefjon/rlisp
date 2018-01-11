@@ -80,6 +80,7 @@ where
         }
     }
 
+    #[cfg_attr(feature = "cargo-clippy", allow(while_let_on_iterator))]
     fn read_list(&mut self, iter: &mut V) -> Result<Object> {
         let mut elems = Vec::new();
         while let Some(byte) = iter.next() {

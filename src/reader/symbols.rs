@@ -7,7 +7,7 @@ use super::WHITESPACE;
 pub trait ReadSymbol<V: Iterator<Item = u8>>: lisp::Symbols {
     fn read_symbol(&mut self, peek: u8, iter: &mut V) -> Result<(Object, Option<u8>)> {
         let mut sym = vec![peek];
-        while let Some(byte) = iter.next() {
+        for byte in iter {
             match byte {
                 b')' => {
                     return self.finish_symbol(sym, Some(byte));

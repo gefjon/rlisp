@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::default::Default;
 
 mod macro_char_table;
 pub use self::macro_char_table::MacroChars;
@@ -14,10 +15,10 @@ pub struct Lisp {
     macro_chars: HashMap<u8, &'static str>,
 }
 
-impl Lisp {
-    pub fn new() -> Self {
+impl Default for Lisp {
+    fn default() -> Self {
         Self {
-            symbols: symbols_table::SymbolsTab::new(),
+            symbols: symbols_table::SymbolsTab::default(),
             macro_chars: INITIAL_MACRO_CHARS.iter().cloned().collect(),
         }
     }

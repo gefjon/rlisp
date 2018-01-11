@@ -1,7 +1,7 @@
 use types::*;
 
 pub fn improper_from_vec(mut elems: Vec<Object>) -> Object {
-    if elems.len() == 0 {
+    if elems.is_empty() {
         Object::nil()
     } else {
         elems.reverse();
@@ -46,19 +46,19 @@ pub enum ConsIteratorResult<'a, T: 'a> {
 }
 
 impl<'cons> ConsIterator<'cons> {
-    pub fn improper_next(&mut self) -> ConsIteratorResult<&'cons Object> {
+    pub fn improper_next(&mut self) -> ConsIteratorResult<'cons, Object> {
         if self.first {
             self.first = false;
-            ConsIteratorResult::More(&self.car)
+            ConsIteratorResult::More(self.car)
         } else {
             match self.cdr {
                 &Object::Cons(ref next) => {
                     self.car = &next.car;
                     self.cdr = &next.cdr;
-                    ConsIteratorResult::More(&self.car)
+                    ConsIteratorResult::More(self.car)
                 }
                 &Object::Nil => ConsIteratorResult::Final(None),
-                ref other => ConsIteratorResult::Final(Some(other)),
+                other => ConsIteratorResult::Final(Some(other)),
             }
         }
     }

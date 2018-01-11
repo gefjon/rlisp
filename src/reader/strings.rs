@@ -3,6 +3,7 @@ use std::iter::Iterator;
 use types::*;
 use lisp;
 
+#[cfg_attr(feature = "cargo-clippy", allow(while_let_on_iterator))]
 pub trait ReadString<V: Iterator<Item = u8>> {
     fn read_string(&mut self, open: u8, iter: &mut V) -> Result<Object> {
         let mut string = Vec::new();

@@ -8,7 +8,7 @@ use super::WHITESPACE;
 pub trait ReadNumber<V: Iterator<Item = u8>> {
     fn read_number(&mut self, peek: u8, iter: &mut V) -> Result<(Object, Option<u8>)> {
         let mut num = vec![peek];
-        while let Some(byte) = iter.next() {
+        for byte in iter {
             match byte {
                 b')' => {
                     return Ok((

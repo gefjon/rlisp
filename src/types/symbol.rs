@@ -1,18 +1,24 @@
 use std::rc::Rc;
 use std::fmt;
 use std::cmp::{Eq, PartialEq};
+use std::str::FromStr;
+use result::*;
 
 #[derive(Clone)]
 pub struct Symbol {
     sym: Rc<String>,
 }
 
-impl Symbol {
-    pub fn from_str(sym: &str) -> Self {
-        Symbol {
-            sym: Rc::new(String::from(sym)),
-        }
+impl FromStr for Symbol {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self> {
+        Ok(Symbol {
+            sym: Rc::new(String::from(s)),
+        })
     }
+}
+
+impl Symbol {
     pub fn from_string(sym: String) -> Self {
         Symbol { sym: Rc::new(sym) }
     }
