@@ -11,7 +11,7 @@ use self::symbols::ReadSymbol;
 mod strings;
 use self::strings::ReadString;
 
-const WHITESPACE: [u8; 3] = [b' ', b'\t', b'\n'];
+const WHITESPACE: &[u8] = &[b' ', b'\t', b'\n'];
 
 pub type StdioIter<'read> =
     Map<io::Bytes<io::StdinLock<'read>>, fn(::std::result::Result<u8, io::Error>) -> u8>;
