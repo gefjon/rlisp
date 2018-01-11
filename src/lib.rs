@@ -22,6 +22,10 @@ mod result {
                 description("met EOF before a string was closed"),
                 display("met EOF before a string was closed"),
             }
+            UnexpectedEOF {
+                description("met EOF before finished parsing"),
+                display("met EOF before finished parsing"),
+            }
         }
     }
 }

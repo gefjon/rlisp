@@ -18,16 +18,17 @@ pub type StdioIter<'read> = Map<io::Bytes<io::StdinLock<'read>>, fn(::std::resul
 pub trait Reader<V>: numbers::ReadNumber<V> +
     strings::ReadString<V> +
     symbols::ReadSymbol<V> +
-    lisp::Symbols
+    lisp::Symbols +
+    lisp::MacroChars
     where V: Iterator<Item=u8>
 {
     fn read(&mut self, input: &mut V) -> Result<Option<Object>> {
         let (opt_form, _) = self.read_form(input)?;
         Ok(opt_form)
     }
-    
-    fn read_from_char(&mut self, byte: u8, iter: &mut V)
-                      -> Result<(Option<Object>, Option<u8>)> {
+
+    fn read_after_checking_macro_chars(&mut self, byte: u8, iter: &mut V)
+                                       -> Result<(Option<Object>, Option<u8>)> {
         match byte {
             peek @ b'0' ... b'9' => {
                 let (obj, opt_byte) = self.read_number(peek, iter)?;
@@ -49,8 +50,35 @@ pub trait Reader<V>: numbers::ReadNumber<V> +
         }
     }
     
+    fn read_from_char(&mut self, byte: u8, iter: &mut V)
+                      -> Result<(Option<Object>, Option<u8>)> {
+        let symbol = {
+            if let Some(sym) = self.check_macro_char(byte) {
+                Some(sym.clone())
+            } else {
+                None
+                    
+            }
+        };
+        if let Some(symbol) = symbol {
+            if let (Some(obj), peek) = self.read_form(iter)? {
+                Ok((
+                    Some(list::from_vec(vec![
+                        symbol.into(),
+                        obj
+                    ])),
+                    peek
+                ))
+            } else {
+                Err(ErrorKind::UnexpectedEOF.into())
+            }
+        } else {
+            self.read_after_checking_macro_chars(byte, iter)
+        }
+    }
+    
     fn read_form(&mut self, iter: &mut V)
-                    -> Result<(Option<Object>, Option<u8>)> {
+                 -> Result<(Option<Object>, Option<u8>)> {
         if let Some(byte) = iter.next() {
             self.read_from_char(byte, iter)
         } else {
