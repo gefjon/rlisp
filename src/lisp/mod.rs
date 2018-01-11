@@ -6,11 +6,8 @@ pub use self::macro_char_table::MacroChars;
 mod symbols_table;
 pub use self::symbols_table::Symbols;
 
-const INITIAL_MACRO_CHARS: &[(u8, &str)] = &[
-    (b'\'', "quote"),
-    (b'`', "backquote"),
-    (b',', "comma"),
-];
+const INITIAL_MACRO_CHARS: &[(u8, &str)] =
+    &[(b'\'', "quote"), (b'`', "backquote"), (b',', "comma")];
 
 pub struct Lisp {
     symbols: symbols_table::SymbolsTab,

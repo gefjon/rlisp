@@ -4,7 +4,7 @@ use types::*;
 
 pub mod stdio;
 
-pub trait Rep<V: Iterator<Item=u8>>: ::reader::Reader<V> {
+pub trait Rep<V: Iterator<Item = u8>>: ::reader::Reader<V> {
     fn read(&mut self, input: &mut V) -> Result<Option<Object>> {
         <Self as ::reader::Reader<V>>::read(self, input)
     }

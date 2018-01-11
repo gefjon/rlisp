@@ -1,6 +1,6 @@
 use std::fmt;
 use list;
-use super::{Object};
+use super::Object;
 
 #[derive(Clone)]
 pub struct ConsCell {
@@ -10,38 +10,35 @@ pub struct ConsCell {
 
 impl ConsCell {
     pub fn new(car: Object, cdr: Object) -> Self {
-        Self {
-            car: car,
-            cdr: cdr,
-        }
+        Self { car: car, cdr: cdr }
     }
 }
 
 impl fmt::Display for ConsCell {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use list::ConsIteratorResult::*;
-        
+
         write!(f, "(")?;
         let mut iter = list::iter(self);
-        
+
         if let More(obj) = iter.improper_next() {
             // A list will always have a first item, so we don't need to check
             // for Final in this one
             write!(f, "{}", obj)?;
         }
-        
-        'iter : loop {
+
+        'iter: loop {
             let res = iter.improper_next();
             if let More(obj) = res {
                 write!(f, " {}", obj)?;
             } else if let Final(Some(obj)) = res {
                 write!(f, " . {}", obj)?;
-                break 'iter
+                break 'iter;
             } else {
                 break 'iter;
             }
         }
-        
+
         write!(f, ")")?;
         Ok(())
     }
@@ -58,7 +55,7 @@ mod test {
             Object::float(3.2),
             Object::fixnum(18),
             Object::nil(),
-            Object::fixnum(0)
+            Object::fixnum(0),
         ]);
         assert_eq!("(3.2 18 nil 0)", format!("{}", my_list));
     }
@@ -73,7 +70,7 @@ mod test {
             Object::float(3.2),
             Object::fixnum(18),
             Object::nil(),
-            Object::fixnum(0)
+            Object::fixnum(0),
         ]);
         assert_eq!("(3.2 18 nil . 0)", format!("{}", my_improper_list));
     }

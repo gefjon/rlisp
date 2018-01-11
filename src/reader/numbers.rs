@@ -1,28 +1,27 @@
 use result::*;
-use std::str::{FromStr};
-use std::iter::{Iterator};
+use std::str::FromStr;
+use std::iter::Iterator;
 use types::*;
 use lisp;
 use super::WHITESPACE;
 
-pub trait ReadNumber<V: Iterator<Item=u8>> {
-    fn read_number(&mut self, peek: u8, iter: &mut V)
-                   -> Result<(Object, Option<u8>)> {
+pub trait ReadNumber<V: Iterator<Item = u8>> {
+    fn read_number(&mut self, peek: u8, iter: &mut V) -> Result<(Object, Option<u8>)> {
         let mut num = vec![peek];
         while let Some(byte) = iter.next() {
             match byte {
                 b')' => {
                     return Ok((
                         Object::from(f64::from_str(&String::from_utf8(num)?)?),
-                        Some(byte)
+                        Some(byte),
                     ));
-                },
+                }
                 _ if WHITESPACE.contains(&byte) => {
                     return Ok((
                         Object::from(f64::from_str(&String::from_utf8(num)?)?),
-                        Some(byte)
+                        Some(byte),
                     ));
-                },
+                }
                 _ => num.push(byte),
             }
         }

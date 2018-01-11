@@ -17,7 +17,6 @@ pub fn improper_from_vec(mut elems: Vec<Object>) -> Object {
         head
     }
 }
-    
 
 pub fn from_vec(mut elems: Vec<Object>) -> Object {
     elems.reverse();
@@ -57,7 +56,7 @@ impl<'cons> ConsIterator<'cons> {
                     self.car = &next.car;
                     self.cdr = &next.cdr;
                     ConsIteratorResult::More(&self.car)
-                },
+                }
                 &Object::Nil => ConsIteratorResult::Final(None),
                 ref other => ConsIteratorResult::Final(Some(other)),
             }

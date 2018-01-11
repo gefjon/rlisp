@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use std::fmt;
-use std::cmp::{PartialEq, Eq};
+use std::cmp::{Eq, PartialEq};
 
 #[derive(Clone)]
 pub struct Symbol {
@@ -14,9 +14,7 @@ impl Symbol {
         }
     }
     pub fn from_string(sym: String) -> Self {
-        Symbol {
-            sym: Rc::new(sym),
-        }
+        Symbol { sym: Rc::new(sym) }
     }
 }
 

@@ -4,7 +4,8 @@ use lisp::Lisp;
 
 pub trait Symbols {
     fn intern<T>(&mut self, sym: T) -> &Symbol
-        where ::std::string::String: ::std::convert::From<T>;
+    where
+        ::std::string::String: ::std::convert::From<T>;
 }
 
 pub struct SymbolsTab {
@@ -21,7 +22,9 @@ impl SymbolsTab {
 
 impl Symbols for SymbolsTab {
     fn intern<T>(&mut self, sym: T) -> &Symbol
-    where ::std::string::String: ::std::convert::From<T> {
+    where
+        ::std::string::String: ::std::convert::From<T>,
+    {
         let sym = String::from(sym);
         if !self.map.contains_key(&sym) {
             let new_symbol = Symbol::from_string(sym.clone());
@@ -37,7 +40,9 @@ impl Symbols for SymbolsTab {
 
 impl Symbols for Lisp {
     fn intern<T>(&mut self, sym: T) -> &Symbol
-    where ::std::string::String: ::std::convert::From<T> {
+    where
+        ::std::string::String: ::std::convert::From<T>,
+    {
         self.symbols.intern(sym)
     }
 }
