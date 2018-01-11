@@ -6,8 +6,8 @@ use types::*;
 
 #[derive(Clone)]
 pub struct Symbol {
-    name: String,
-    val: Option<Object>,
+    pub name: String,
+    pub val: Option<Object>,
 }
 
 impl FromStr for Symbol {

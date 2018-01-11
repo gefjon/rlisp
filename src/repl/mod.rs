@@ -4,12 +4,13 @@ use types::*;
 
 pub mod stdio;
 
-pub trait Rep<V: Iterator<Item = u8>>: ::reader::Reader<V> {
+pub trait Rep<V: Iterator<Item = u8>>
+    : ::reader::Reader<V> + ::evaluator::Evaluator {
     fn read(&mut self, input: &mut V) -> Result<Option<Object>> {
         <Self as ::reader::Reader<V>>::read(self, input)
     }
     fn eval(&mut self, read: Object) -> Result<Object> {
-        Ok(read)
+        <Self as ::evaluator::Evaluator>::evaluate(self, read)
     }
     fn print(&self, evaled: Object) -> Result<String> {
         Ok(format!("{}\n", evaled))

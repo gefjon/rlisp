@@ -26,11 +26,16 @@ mod result {
                 description("met EOF before finished parsing"),
                 display("met EOF before finished parsing"),
             }
+            UnboundSymbol {
+                description("attempted to access the value of an unbound symbol"),
+                display("attempted to access the value of an unbound symbol"),
+            }
         }
     }
 }
 
 mod reader;
+mod evaluator;
 pub mod types;
 pub mod repl;
 pub mod lisp;
