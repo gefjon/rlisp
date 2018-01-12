@@ -1,36 +1,31 @@
 use types::*;
-use lisp;
 
-pub trait ListOps: lisp::Store<ConsCell> {
-    fn list_improper_from_vec(&mut self, mut elems: Vec<Object>) -> Object {
-        if elems.is_empty() {
-            Object::nil()
-        } else {
-            elems.reverse();
-            let mut drain = elems.iter();
-            let mut head = if let Some(obj) = drain.next() {
-                *obj
-            } else {
-                return Object::nil();
-            };
-            for el in drain {
-                head = self.store(ConsCell::new(*el, head));
-            }
-            head
-        }
-    }
-
-    fn list_from_vec(&mut self, mut elems: Vec<Object>) -> Object {
+pub fn improper_from_vec(mut elems: Vec<Object>) -> Object {
+    if elems.is_empty() {
+        Object::nil()
+    } else {
         elems.reverse();
-        let mut head = Object::nil();
-        for el in &elems {
-            head = self.store(ConsCell::new(*el, head));
+        let mut drain = elems.iter();
+        let mut head = if let Some(obj) = drain.next() {
+            *obj
+        } else {
+            return Object::nil();
+        };
+        for el in drain {
+            head = Object::cons(*el, head);
         }
         head
     }
 }
 
-impl ListOps for lisp::Lisp {}
+pub fn from_vec(mut elems: Vec<Object>) -> Object {
+    elems.reverse();
+    let mut head = Object::nil();
+    for el in &elems {
+        head = Object::cons(*el, head);
+    }
+    head
+}
 
 pub fn iter(list: &ConsCell) -> ConsIterator {
     ConsIterator {

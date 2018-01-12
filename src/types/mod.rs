@@ -1,5 +1,6 @@
 use std::fmt;
 use std::convert;
+use std::boxed::Box;
 
 pub mod symbol;
 pub use self::symbol::Symbol;
@@ -19,6 +20,35 @@ pub enum Object {
 impl Object {
     pub fn nil() -> Self {
         Object::Nil
+    }
+    pub fn cons(car: Object, cdr: Object) -> Self {
+        let cons = Box::new(ConsCell::new(car, cdr));
+        Object::Cons(Box::into_raw(cons))
+    }
+    pub fn string(contents: String) -> Self {
+        let box_str = Box::new(contents);
+        Object::String(Box::into_raw(box_str))
+    }
+    pub fn symbol_from_ptr(sym: *const Symbol) -> Self {
+        Object::Sym(sym)
+    }
+    pub fn symbol(sym: Symbol) -> Self {
+        let sym_box = Box::new(sym);
+        Object::Sym(Box::into_raw(sym_box))
+    }
+    pub fn symbolp(self) -> bool {
+        if let Object::Sym(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+    pub fn into_symbol<'unbound>(self) -> Option<&'unbound Symbol> {
+        if let Object::Sym(ptr) = self {
+            Some(unsafe { &(*ptr) })
+        } else {
+            None
+        }
     }
 }
 

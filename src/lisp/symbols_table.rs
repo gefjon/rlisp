@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::default::Default;
 use types::*;
 use lisp::Lisp;
+use std::boxed::Box;
 
 pub trait Symbols {
     fn intern<T>(&mut self, sym: T) -> Object
@@ -10,7 +11,7 @@ pub trait Symbols {
 }
 
 pub struct SymbolsTab {
-    map: HashMap<String, Symbol>,
+    map: HashMap<String, *const Symbol>,
 }
 
 impl Default for SymbolsTab {
@@ -28,11 +29,11 @@ impl Symbols for SymbolsTab {
     {
         let sym = String::from(sym);
         if !self.map.contains_key(&sym) {
-            let new_symbol = Symbol::from_string(sym.clone());
-            let _ = self.map.insert(sym.clone(), new_symbol);
+            let new_symbol = Box::new(Symbol::from_string(sym.clone()));
+            let _ = self.map.insert(sym.clone(), Box::into_raw(new_symbol));
         }
         if let Some(symbol) = self.map.get(&sym) {
-            Object::Sym(symbol as *const Symbol)
+            Object::Sym(*symbol)
         } else {
             unreachable!()
         }
