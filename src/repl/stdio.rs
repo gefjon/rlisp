@@ -49,7 +49,7 @@ impl StdIoRepl {
             let result = <Lisp as Rep<::reader::StdioIter>>::rep(&mut self.lisp, &mut iter);
             match result {
                 Ok(output) => Self::write_to_stdout(&output, &mut stdoutlock)?,
-                Err(err) => Self::write_to_stderr(&format!("{}", err))?,
+                Err(err) => Self::write_to_stderr(&format!("ERROR: {}\n", err))?,
             }
         }
     }

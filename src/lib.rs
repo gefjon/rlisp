@@ -30,10 +30,15 @@ mod result {
                 description("attempted to access the value of an unbound symbol"),
                 display("attempted to access the value of an unbound symbol"),
             }
+            StackUnderflow {
+                description("attempted to pop off an empty stack"),
+                display("attempted to pop off an empty stack"),
+            }
         }
     }
 }
 
+mod gc;
 mod reader;
 mod evaluator;
 pub mod types;

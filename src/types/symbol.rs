@@ -3,11 +3,13 @@ use std::cmp::{Eq, PartialEq};
 use std::str::FromStr;
 use result::*;
 use types::*;
+use gc::GcMark;
 
 #[derive(Clone)]
 pub struct Symbol {
     pub name: String,
     pub val: Option<Object>,
+    pub gc_marking: GcMark,
 }
 
 impl FromStr for Symbol {
@@ -16,15 +18,28 @@ impl FromStr for Symbol {
         Ok(Symbol {
             name: String::from(s),
             val: None,
+            gc_marking: 0,
         })
     }
 }
 
 impl Symbol {
+    pub fn should_dealloc(&self, current_marking: GcMark) -> bool {
+        self.gc_marking != current_marking
+    }
+    pub fn gc_mark(&mut self, mark: GcMark) {
+        if self.gc_marking != mark {
+            self.gc_marking = mark;
+            if let Some(obj) = self.val {
+                obj.gc_mark(mark);
+            }
+        }
+    }
     pub fn from_string(sym: String) -> Self {
         Symbol {
             name: sym,
             val: None,
+            gc_marking: 0,
         }
     }
 }

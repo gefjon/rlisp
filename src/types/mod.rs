@@ -2,6 +2,9 @@ use std::fmt;
 use std::convert;
 use std::boxed::Box;
 
+pub mod string;
+pub use self::string::RlispString;
+
 pub mod symbol;
 pub use self::symbol::Symbol;
 
@@ -13,28 +16,13 @@ pub enum Object {
     Cons(*const ConsCell),
     Num(f64),
     Sym(*const Symbol),
-    String(*const String),
+    String(*const RlispString),
     Nil,
 }
 
 impl Object {
     pub fn nil() -> Self {
         Object::Nil
-    }
-    pub fn cons(car: Object, cdr: Object) -> Self {
-        let cons = Box::new(ConsCell::new(car, cdr));
-        Object::Cons(Box::into_raw(cons))
-    }
-    pub fn string(contents: String) -> Self {
-        let box_str = Box::new(contents);
-        Object::String(Box::into_raw(box_str))
-    }
-    pub fn symbol_from_ptr(sym: *const Symbol) -> Self {
-        Object::Sym(sym)
-    }
-    pub fn symbol(sym: Symbol) -> Self {
-        let sym_box = Box::new(sym);
-        Object::Sym(Box::into_raw(sym_box))
     }
     pub fn symbolp(self) -> bool {
         if let Object::Sym(_) = self {
@@ -48,6 +36,36 @@ impl Object {
             Some(unsafe { &(*ptr) })
         } else {
             None
+        }
+    }
+    pub unsafe fn deallocate(self) {
+        match self {
+            Object::Num(_) | Object::Nil => (),
+            Object::Cons(c) => {
+                Box::from_raw(c as *mut ConsCell);
+            }
+            Object::Sym(s) => {
+                Box::from_raw(s as *mut Symbol);
+            }
+            Object::String(s) => {
+                Box::from_raw(s as *mut String);
+            }
+        }
+    }
+    pub fn gc_mark(self, marking: ::gc::GcMark) {
+        match self {
+            Object::Num(_) | Object::Nil => (),
+            Object::Cons(c) => unsafe { (*(c as *mut ConsCell)).gc_mark(marking) },
+            Object::Sym(s) => unsafe { (*(s as *mut Symbol)).gc_mark(marking) },
+            Object::String(_s) => unimplemented!(),
+        }
+    }
+    pub fn should_dealloc(self, current_marking: ::gc::GcMark) -> bool {
+        match self {
+            Object::Num(_) | Object::Nil => false,
+            Object::Sym(s) => unsafe { (*s).should_dealloc(current_marking) },
+            Object::Cons(c) => unsafe { (*c).should_dealloc(current_marking) },
+            Object::String(_s) => unimplemented!(),
         }
     }
 }
@@ -64,8 +82,8 @@ impl fmt::Display for Object {
     }
 }
 
-impl convert::From<*const String> for Object {
-    fn from(string: *const String) -> Self {
+impl convert::From<*const RlispString> for Object {
+    fn from(string: *const RlispString) -> Self {
         Object::String(string)
     }
 }

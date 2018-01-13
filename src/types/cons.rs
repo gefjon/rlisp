@@ -1,16 +1,32 @@
 use std::fmt;
 use list;
 use super::Object;
+use gc::GcMark;
 
 #[derive(Clone)]
 pub struct ConsCell {
     pub car: Object,
     pub cdr: Object,
+    gc_marking: GcMark,
 }
 
 impl ConsCell {
     pub fn new(car: Object, cdr: Object) -> Self {
-        Self { car: car, cdr: cdr }
+        Self {
+            car: car,
+            cdr: cdr,
+            gc_marking: 0,
+        }
+    }
+    pub fn gc_mark(&mut self, mark: GcMark) {
+        if self.gc_marking != mark {
+            self.gc_marking = mark;
+            self.car.gc_mark(mark);
+            self.cdr.gc_mark(mark);
+        }
+    }
+    pub fn should_dealloc(&self, current_marking: GcMark) -> bool {
+        self.gc_marking != current_marking
     }
 }
 

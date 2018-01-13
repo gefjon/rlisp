@@ -11,7 +11,7 @@ pub trait Symbols {
 }
 
 pub struct SymbolsTab {
-    map: HashMap<String, *const Symbol>,
+    pub map: HashMap<String, *const Symbol>,
 }
 
 impl Default for SymbolsTab {

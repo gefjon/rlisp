@@ -1,31 +1,36 @@
 use types::*;
+use lisp;
 
-pub fn improper_from_vec(mut elems: Vec<Object>) -> Object {
-    if elems.is_empty() {
-        Object::nil()
-    } else {
-        elems.reverse();
-        let mut drain = elems.iter();
-        let mut head = if let Some(obj) = drain.next() {
-            *obj
+pub trait ListOps: lisp::allocate::AllocObject {
+    fn list_improper_from_vec(&mut self, mut elems: Vec<Object>) -> Object {
+        if elems.is_empty() {
+            Object::nil()
         } else {
-            return Object::nil();
-        };
-        for el in drain {
-            head = Object::cons(*el, head);
+            elems.reverse();
+            let mut drain = elems.iter();
+            let mut head = if let Some(obj) = drain.next() {
+                *obj
+            } else {
+                unreachable!()
+            };
+            for el in drain {
+                head = self.alloc_cons(ConsCell::new(*el, head));
+            }
+            head
+        }
+    }
+
+    fn list_from_vec(&mut self, mut elems: Vec<Object>) -> Object {
+        elems.reverse();
+        let mut head = Object::nil();
+        for el in &elems {
+            head = self.alloc_cons(ConsCell::new(*el, head));
         }
         head
     }
 }
 
-pub fn from_vec(mut elems: Vec<Object>) -> Object {
-    elems.reverse();
-    let mut head = Object::nil();
-    for el in &elems {
-        head = Object::cons(*el, head);
-    }
-    head
-}
+impl ListOps for lisp::Lisp {}
 
 pub fn iter(list: &ConsCell) -> ConsIterator {
     ConsIterator {

@@ -4,13 +4,13 @@ use types::*;
 use lisp;
 
 #[cfg_attr(feature = "cargo-clippy", allow(while_let_on_iterator))]
-pub trait ReadString<V: Iterator<Item = u8>> {
+pub trait ReadString<V: Iterator<Item = u8>>: lisp::allocate::AllocObject {
     fn read_string(&mut self, open: u8, iter: &mut V) -> Result<Object> {
         let mut string = Vec::new();
         while let Some(byte) = iter.next() {
             match byte {
                 _ if byte == open => {
-                    return Ok(Object::string(String::from_utf8(string)?));
+                    return Ok(self.alloc_string(RlispString::from(String::from_utf8(string)?)));
                 }
                 b'\\' => {
                     if let Some(escape) = iter.next() {
