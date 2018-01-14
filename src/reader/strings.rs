@@ -10,7 +10,7 @@ pub trait ReadString<V: Iterator<Item = u8>>: lisp::allocate::AllocObject {
         while let Some(byte) = iter.next() {
             match byte {
                 _ if byte == open => {
-                    return Ok(self.alloc_string(RlispString::from(String::from_utf8(string)?)));
+                    return Ok(self.alloc(RlispString::from(String::from_utf8(string)?)));
                 }
                 b'\\' => {
                     if let Some(escape) = iter.next() {

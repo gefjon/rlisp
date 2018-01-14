@@ -168,21 +168,27 @@ impl convert::From<Object> for bool {
     }
 }
 
-impl convert::From<*const RlispString> for Object {
-    fn from(string: *const RlispString) -> Self {
-        Object::String(string)
+impl convert::From<*mut RlispString> for Object {
+    fn from(string: *mut RlispString) -> Self {
+        Object::String(string as _)
     }
 }
 
-impl convert::From<*const ConsCell> for Object {
-    fn from(cons: *const ConsCell) -> Self {
-        Object::Cons(cons)
+impl convert::From<*mut ConsCell> for Object {
+    fn from(cons: *mut ConsCell) -> Self {
+        Object::Cons(cons as _)
     }
 }
 
-impl convert::From<*const Symbol> for Object {
-    fn from(sym: *const Symbol) -> Self {
-        Object::Sym(sym)
+impl convert::From<*mut Symbol> for Object {
+    fn from(sym: *mut Symbol) -> Self {
+        Object::Sym(sym as _)
+    }
+}
+
+impl convert::From<*mut RlispFunc> for Object {
+    fn from(func: *mut RlispFunc) -> Self {
+        Object::Function(func as _)
     }
 }
 

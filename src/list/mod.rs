@@ -14,7 +14,7 @@ pub trait ListOps: lisp::allocate::AllocObject {
                 unreachable!()
             };
             for el in drain {
-                head = self.alloc_cons(ConsCell::new(*el, head));
+                head = self.alloc(ConsCell::new(*el, head));
             }
             head
         }
@@ -24,9 +24,20 @@ pub trait ListOps: lisp::allocate::AllocObject {
         elems.reverse();
         let mut head = Object::nil();
         for el in &elems {
-            head = self.alloc_cons(ConsCell::new(*el, head));
+            head = self.alloc(ConsCell::new(*el, head));
         }
         head
+    }
+    fn list_push(&mut self, list: &mut Object, new_head: Object) {
+        list = self.alloc(ConsCell::new(new_head, list));
+    }
+    fn list_pop(&mut self, list: &mut Object) -> Object {
+        if let Some(ConsCell { car, cdr, .. }) = list.into_cons() {
+            list = cdr;
+            car
+        } else {
+            list
+        }
     }
 }
 

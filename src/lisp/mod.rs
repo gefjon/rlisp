@@ -39,31 +39,19 @@ pub mod allocate {
     use std::boxed::Box;
     use lisp;
     pub trait AllocObject {
-        fn alloc_cons(&mut self, cons: ConsCell) -> Object;
-        fn alloc_sym(&mut self, sym: Symbol) -> Object;
-        fn alloc_string(&mut self, string: RlispString) -> Object;
+        fn alloc<T>(&mut self, to_alloc: T) -> Object
+        where
+            Object: ::std::convert::From<*mut T>,
+        {
+            let boxed = Box::new(to_alloc);
+            let obj = Object::from(Box::into_raw(boxed));
+            self.objects_mut().push(obj);
+            obj
+        }
         fn objects(&self) -> &Vec<Object>;
         fn objects_mut(&mut self) -> &mut Vec<Object>;
     }
     impl AllocObject for lisp::Lisp {
-        fn alloc_cons(&mut self, cons: ConsCell) -> Object {
-            let box_cons = Box::new(cons);
-            let obj = Object::from(Box::into_raw(box_cons) as *const ConsCell);
-            self.alloced_objects.push(obj);
-            obj
-        }
-        fn alloc_sym(&mut self, sym: Symbol) -> Object {
-            let box_sym = Box::new(sym);
-            let obj = Object::from(Box::into_raw(box_sym) as *const Symbol);
-            self.alloced_objects.push(obj);
-            obj
-        }
-        fn alloc_string(&mut self, string: RlispString) -> Object {
-            let box_string = Box::new(string);
-            let obj = Object::from(Box::into_raw(box_string) as *const RlispString);
-            self.alloced_objects.push(obj);
-            obj
-        }
         fn objects(&self) -> &Vec<Object> {
             &self.alloced_objects
         }
