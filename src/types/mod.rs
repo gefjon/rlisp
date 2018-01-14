@@ -193,6 +193,30 @@ impl convert::From<Object> for bool {
     }
 }
 
+impl convert::From<*const RlispString> for Object {
+    fn from(string: *const RlispString) -> Self {
+        Object::String(string)
+    }
+}
+
+impl convert::From<*const ConsCell> for Object {
+    fn from(cons: *const ConsCell) -> Self {
+        Object::Cons(cons)
+    }
+}
+
+impl convert::From<*const Symbol> for Object {
+    fn from(sym: *const Symbol) -> Self {
+        Object::Sym(sym)
+    }
+}
+
+impl convert::From<*const RlispFunc> for Object {
+    fn from(func: *const RlispFunc) -> Self {
+        Object::Function(func)
+    }
+}
+
 impl convert::From<*mut RlispString> for Object {
     fn from(string: *mut RlispString) -> Self {
         Object::String(string as _)
