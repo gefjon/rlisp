@@ -28,14 +28,18 @@ impl Symbols for SymbolsTab {
         ::std::string::String: ::std::convert::From<T>,
     {
         let sym = String::from(sym);
-        if !self.map.contains_key(&sym) {
-            let new_symbol = Box::new(Symbol::from_string(sym.clone()));
-            let _ = self.map.insert(sym.clone(), Box::into_raw(new_symbol));
-        }
-        if let Some(symbol) = self.map.get(&sym) {
-            Object::Sym(*symbol)
+        if sym == "nil" {
+            Object::nil()
         } else {
-            unreachable!()
+            if !self.map.contains_key(&sym) {
+                let new_symbol = Box::new(Symbol::from_string(sym.clone()));
+                let _ = self.map.insert(sym.clone(), Box::into_raw(new_symbol));
+            }
+            if let Some(symbol) = self.map.get(&sym) {
+                Object::Sym(*symbol)
+            } else {
+                unreachable!()
+            }
         }
     }
 }
