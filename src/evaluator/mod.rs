@@ -8,14 +8,14 @@ pub trait Evaluator: lisp::Symbols + function::EvalFunc {
         match input {
             Object::Sym(s) => self.eval_symbol(s),
             Object::Cons(c) => self.eval_list(c),
-            Object::Nil | Object::String(_) | Object::Num(_) | Object::Function(_) => Ok(input),
+            Object::Bool(_) | Object::String(_) | Object::Num(_) | Object::Function(_) => Ok(input),
         }
     }
     fn eval_symbol(&mut self, s: *const Symbol) -> Result<Object> {
-        if let Some(obj) = unsafe { (*s).val } {
+        if let Some(obj) = unsafe { (*s).evaluate() } {
             Ok(obj)
         } else {
-            Err(ErrorKind::UnboundSymbol.into())
+            Err(ErrorKind::Unbound.into())
         }
     }
     fn eval_list(&mut self, c: *const ConsCell) -> Result<Object> {

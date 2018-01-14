@@ -1,4 +1,5 @@
 use std::fmt;
+use std::default::Default;
 use std::convert;
 use std::boxed::Box;
 use gc::GarbageCollected;
@@ -22,7 +23,7 @@ pub enum Object {
     Sym(*const Symbol),
     String(*const RlispString),
     Function(*const RlispFunc),
-    Nil,
+    Bool(bool),
 }
 
 #[derive(Copy, Clone)]
@@ -32,12 +33,22 @@ pub enum RlispType {
     Sym,
     String,
     Function,
-    Nil,
+    Bool,
 }
 
 impl Object {
     pub fn nil() -> Self {
-        Object::Nil
+        Object::Bool(false)
+    }
+    pub fn t() -> Self {
+        Object::Bool(true)
+    }
+    pub fn boolp(self) -> bool {
+        if let Object::Bool(_) = self {
+            true
+        } else {
+            false
+        }
     }
     pub fn symbolp(self) -> bool {
         if let Object::Sym(_) = self {
@@ -75,7 +86,7 @@ impl Object {
         }
     }
     pub fn nilp(self) -> bool {
-        if let Object::Nil = self {
+        if let Object::Bool(false) = self {
             true
         } else {
             false
@@ -88,7 +99,7 @@ impl Object {
             Object::Sym(_) => RlispType::Sym,
             Object::String(_) => RlispType::String,
             Object::Function(_) => RlispType::Function,
-            Object::Nil => RlispType::Nil,
+            Object::Bool(_) => RlispType::Bool,
         }
     }
     pub fn into_symbol<'unbound>(self) -> Option<&'unbound Symbol> {
@@ -114,7 +125,7 @@ impl Object {
     }
     pub unsafe fn deallocate(self) {
         match self {
-            Object::Num(_) | Object::Nil => (),
+            Object::Num(_) | Object::Bool(_) => (),
             Object::Cons(c) => {
                 Box::from_raw(c as *mut ConsCell);
             }
@@ -131,7 +142,7 @@ impl Object {
     }
     pub fn gc_mark(self, marking: ::gc::GcMark) {
         match self {
-            Object::Num(_) | Object::Nil => (),
+            Object::Num(_) | Object::Bool(_) => (),
             Object::Cons(c) => unsafe { (*(c as *mut ConsCell)).gc_mark(marking) },
             Object::Sym(s) => unsafe { (*(s as *mut Symbol)).gc_mark(marking) },
             Object::String(_s) => unimplemented!(),
@@ -140,7 +151,7 @@ impl Object {
     }
     pub fn should_dealloc(self, current_marking: ::gc::GcMark) -> bool {
         match self {
-            Object::Num(_) | Object::Nil => false,
+            Object::Num(_) | Object::Bool(_) => false,
             Object::Sym(s) => unsafe { (*s).should_dealloc(current_marking) },
             Object::Cons(c) => unsafe { (*c).should_dealloc(current_marking) },
             Object::String(_s) => unimplemented!(),
@@ -152,13 +163,20 @@ impl Object {
 impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Object::Nil => write!(f, "nil"),
+            Object::Bool(false) => write!(f, "nil"),
+            Object::Bool(true) => write!(f, "t"),
             Object::Num(n) => write!(f, "{}", n),
             Object::Sym(s) => unsafe { write!(f, "{}", *s) },
             Object::Cons(c) => unsafe { write!(f, "{}", *c) },
             Object::String(s) => unsafe { write!(f, "\"{}\"", *s) },
             Object::Function(func) => unsafe { write!(f, "{}", *func) },
         }
+    }
+}
+
+impl Default for Object {
+    fn default() -> Self {
+        Object::Bool(true)
     }
 }
 

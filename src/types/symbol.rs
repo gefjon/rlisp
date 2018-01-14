@@ -1,15 +1,59 @@
-use std::fmt;
+use std::{fmt, mem};
 use std::cmp::{Eq, PartialEq};
 use std::str::FromStr;
 use result::*;
 use types::*;
 use gc::{GarbageCollected, GcMark};
+use std::boxed::Box;
+use std::default::Default;
 
-#[derive(Clone)]
 pub struct Symbol {
     pub name: String,
-    pub val: Option<Object>,
+    val: Binding,
     pub gc_marking: GcMark,
+}
+
+pub struct Binding {
+    bind: Option<Object>,
+    prev: Option<Box<Binding>>,
+}
+
+impl Binding {
+    fn push(&mut self, val: Object) {
+        let old_binding = mem::replace(
+            self,
+            Binding {
+                bind: Some(val),
+                prev: None,
+            },
+        );
+        let boxed = Box::new(old_binding);
+        self.prev = Some(boxed);
+    }
+    fn pop(&mut self) -> Option<Object> {
+        if let Some(mut prev) = mem::replace(&mut self.prev, None) {
+            mem::swap(self, &mut *prev);
+            if let Binding {
+                bind: Some(obj), ..
+            } = *prev
+            {
+                Some(obj)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+}
+
+impl Default for Binding {
+    fn default() -> Self {
+        Self {
+            bind: None,
+            prev: None,
+        }
+    }
 }
 
 impl FromStr for Symbol {
@@ -17,7 +61,7 @@ impl FromStr for Symbol {
     fn from_str(s: &str) -> Result<Self> {
         Ok(Symbol {
             name: String::from(s),
-            val: None,
+            val: Binding::default(),
             gc_marking: 0,
         })
     }
@@ -31,17 +75,27 @@ impl GarbageCollected for Symbol {
         &mut self.gc_marking
     }
     fn gc_mark_children(&mut self, mark: GcMark) {
-        if let Some(obj) = self.val {
-            obj.gc_mark(mark);
+        if let Some(val) = self.evaluate() {
+            val.gc_mark(mark);
         }
     }
 }
 
 impl Symbol {
+    pub fn evaluate(&self) -> Option<Object> {
+        if let Binding {
+            bind: Some(val), ..
+        } = self.val
+        {
+            Some(val)
+        } else {
+            None
+        }
+    }
     pub fn from_string(sym: String) -> Self {
         Symbol {
             name: sym,
-            val: None,
+            val: Binding::default(),
             gc_marking: 0,
         }
     }

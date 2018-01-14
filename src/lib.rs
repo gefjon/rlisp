@@ -26,7 +26,7 @@ mod result {
                 description("met EOF before finished parsing"),
                 display("met EOF before finished parsing"),
             }
-            UnboundSymbol {
+            Unbound {
                 description("attempted to access the value of an unbound symbol"),
                 display("attempted to access the value of an unbound symbol"),
             }

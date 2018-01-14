@@ -29,14 +29,14 @@ pub trait ListOps: lisp::allocate::AllocObject {
         head
     }
     fn list_push(&mut self, list: &mut Object, new_head: Object) {
-        list = self.alloc(ConsCell::new(new_head, list));
+        *list = self.alloc(ConsCell::new(new_head, *list));
     }
     fn list_pop(&mut self, list: &mut Object) -> Object {
-        if let Some(ConsCell { car, cdr, .. }) = list.into_cons() {
-            list = cdr;
+        if let Some(&ConsCell { car, cdr, .. }) = list.into_cons() {
+            *list = cdr;
             car
         } else {
-            list
+            *list
         }
     }
 }
@@ -74,7 +74,7 @@ impl ConsIterator {
                     self.cdr = unsafe { (*next).cdr };
                     ConsIteratorResult::More(self.car)
                 }
-                Object::Nil => ConsIteratorResult::Final(None),
+                Object::Bool(false) => ConsIteratorResult::Final(None),
                 other => ConsIteratorResult::Final(Some(other)),
             }
         }

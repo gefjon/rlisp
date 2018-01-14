@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::default::Default;
-use types::Object;
+use types::*;
 
 mod macro_char_table;
 pub use self::macro_char_table::MacroChars;
@@ -65,7 +65,7 @@ const INITIAL_MACRO_CHARS: &[(u8, &str)] =
     &[(b'\'', "quote"), (b'`', "backquote"), (b',', "comma")];
 
 pub struct Lisp {
-    pub symbols: symbols_table::SymbolsTab,
+    pub symbols: HashMap<String, *const Symbol>,
     macro_chars: HashMap<u8, &'static str>,
     pub stack: Vec<Object>,
     pub current_gc_mark: ::gc::GcMark,
@@ -75,7 +75,7 @@ pub struct Lisp {
 impl Default for Lisp {
     fn default() -> Self {
         Self {
-            symbols: symbols_table::SymbolsTab::default(),
+            symbols: HashMap::new(),
             macro_chars: INITIAL_MACRO_CHARS.iter().cloned().collect(),
             current_gc_mark: 1,
             stack: Vec::new(),
