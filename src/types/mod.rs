@@ -46,8 +46,67 @@ impl Object {
             false
         }
     }
+    pub fn numberp(self) -> bool {
+        if let Object::Num(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+    pub fn consp(self) -> bool {
+        if let Object::Cons(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+    pub fn stringp(self) -> bool {
+        if let Object::String(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+    pub fn functionp(self) -> bool {
+        if let Object::Function(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+    pub fn nilp(self) -> bool {
+        if let Object::Nil = self {
+            true
+        } else {
+            false
+        }
+    }
+    pub fn what_type(self) -> RlispType {
+        match self {
+            Object::Cons(_) => RlispType::Cons,
+            Object::Num(_) => RlispType::Num,
+            Object::Sym(_) => RlispType::Sym,
+            Object::String(_) => RlispType::String,
+            Object::Function(_) => RlispType::Function,
+            Object::Nil => RlispType::Nil,
+        }
+    }
     pub fn into_symbol<'unbound>(self) -> Option<&'unbound Symbol> {
         if let Object::Sym(ptr) = self {
+            Some(unsafe { &(*ptr) })
+        } else {
+            None
+        }
+    }
+    pub fn into_cons<'unbound>(self) -> Option<&'unbound ConsCell> {
+        if let Object::Cons(ptr) = self {
+            Some(unsafe { &(*ptr) })
+        } else {
+            None
+        }
+    }
+    pub fn into_function<'unbound>(self) -> Option<&'unbound RlispFunc> {
+        if let Object::Function(ptr) = self {
             Some(unsafe { &(*ptr) })
         } else {
             None
