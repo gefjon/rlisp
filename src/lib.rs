@@ -34,6 +34,14 @@ mod result {
                 description("attempted to pop off an empty stack"),
                 display("attempted to pop off an empty stack"),
             }
+            ImproperList {
+                description("an improperly terminated list"),
+                display("an improperly terminated list"),
+            }
+            NotAFunction {
+                description("tried to evaluate a list whose car was not a funciton"),
+                display("tried to evaluate a list whose car was not a funciton"),
+            }
         }
     }
 }

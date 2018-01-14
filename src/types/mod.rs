@@ -12,12 +12,26 @@ pub use self::symbol::Symbol;
 pub mod cons;
 pub use self::cons::ConsCell;
 
+pub mod function;
+pub use self::function::RlispFunc;
+
 #[derive(Copy, Clone)]
 pub enum Object {
     Cons(*const ConsCell),
     Num(f64),
     Sym(*const Symbol),
     String(*const RlispString),
+    Function(*const RlispFunc),
+    Nil,
+}
+
+#[derive(Copy, Clone)]
+pub enum RlispType {
+    Cons,
+    Num,
+    Sym,
+    String,
+    Function,
     Nil,
 }
 
@@ -51,6 +65,9 @@ impl Object {
             Object::String(s) => {
                 Box::from_raw(s as *mut String);
             }
+            Object::Function(f) => {
+                Box::from_raw(f as *mut RlispFunc);
+            }
         }
     }
     pub fn gc_mark(self, marking: ::gc::GcMark) {
@@ -59,6 +76,7 @@ impl Object {
             Object::Cons(c) => unsafe { (*(c as *mut ConsCell)).gc_mark(marking) },
             Object::Sym(s) => unsafe { (*(s as *mut Symbol)).gc_mark(marking) },
             Object::String(_s) => unimplemented!(),
+            Object::Function(f) => unsafe { (*(f as *mut RlispFunc)).gc_mark(marking) },
         }
     }
     pub fn should_dealloc(self, current_marking: ::gc::GcMark) -> bool {
@@ -67,6 +85,7 @@ impl Object {
             Object::Sym(s) => unsafe { (*s).should_dealloc(current_marking) },
             Object::Cons(c) => unsafe { (*c).should_dealloc(current_marking) },
             Object::String(_s) => unimplemented!(),
+            Object::Function(f) => unsafe { (*f).should_dealloc(current_marking) },
         }
     }
 }
@@ -79,7 +98,14 @@ impl fmt::Display for Object {
             Object::Sym(s) => unsafe { write!(f, "{}", *s) },
             Object::Cons(c) => unsafe { write!(f, "{}", *c) },
             Object::String(s) => unsafe { write!(f, "\"{}\"", *s) },
+            Object::Function(func) => unsafe { write!(f, "{}", *func) },
         }
+    }
+}
+
+impl convert::From<Object> for bool {
+    fn from(obj: Object) -> bool {
+        !obj.nilp()
     }
 }
 
