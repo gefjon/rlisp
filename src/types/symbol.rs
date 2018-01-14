@@ -1,4 +1,4 @@
-use std::{fmt, mem};
+use std::{convert, fmt, mem};
 use std::cmp::{Eq, PartialEq};
 use std::str::FromStr;
 use result::*;
@@ -11,6 +11,18 @@ pub struct Symbol {
     pub name: String,
     pub val: Binding,
     pub gc_marking: GcMark,
+}
+
+impl Symbol {
+    pub fn push(&mut self, val: Object) {
+        self.val.push(val);
+    }
+    pub fn pop(&mut self) -> Option<Object> {
+        self.val.pop()
+    }
+    pub fn set(&mut self, val: Object) {
+        self.val = Binding::from(val)
+    }
 }
 
 pub struct Binding {
@@ -43,6 +55,15 @@ impl Binding {
             }
         } else {
             None
+        }
+    }
+}
+
+impl convert::From<Object> for Binding {
+    fn from(obj: Object) -> Self {
+        Self {
+            bind: Some(obj),
+            prev: None,
         }
     }
 }

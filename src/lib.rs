@@ -53,6 +53,7 @@ mod result {
 mod gc;
 mod reader;
 mod evaluator;
+mod builtins;
 pub mod types;
 pub mod repl;
 pub mod lisp;

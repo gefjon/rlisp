@@ -4,6 +4,7 @@ use types::*;
 use list;
 use list::ConsIteratorResult;
 use types::function::*;
+use builtins::RlispBuiltinFunc;
 
 pub trait Evaluator: lisp::Symbols + lisp::stack_storage::Stack {
     fn evaluate(&mut self, input: Object) -> Result<Object> {
@@ -24,7 +25,7 @@ pub trait Evaluator: lisp::Symbols + lisp::stack_storage::Stack {
         let mut iter = list::iter(unsafe { &(*c) });
         let func = match iter.improper_next() {
             ConsIteratorResult::More(obj) => {
-                if let Some(f) = obj.into_function() {
+                if let Some(f) = self.evaluate(obj)?.into_function() {
                     f
                 } else {
                     return Err(ErrorKind::NotAFunction.into());
@@ -37,6 +38,7 @@ pub trait Evaluator: lisp::Symbols + lisp::stack_storage::Stack {
             if let list::ConsIteratorResult::Final(Some(_)) = res {
                 return Err(ErrorKind::ImproperList.into());
             } else if let list::ConsIteratorResult::More(obj) = res {
+                let obj = self.evaluate(obj)?;
                 self.push(obj);
             } else {
                 break;
@@ -44,21 +46,25 @@ pub trait Evaluator: lisp::Symbols + lisp::stack_storage::Stack {
         }
         self.funcall(func)
     }
-    fn call_rust_func(&mut self, func: &Fn(&mut lisp::Lisp) -> Result<Object>) -> Result<Object>;
-    fn funcall(&mut self, func: &RlispFunc) -> Result<Object> {
+    fn call_rust_func(&mut self, func: &mut RlispBuiltinFunc) -> Result<Object>;
+    fn funcall(&mut self, func: &mut RlispFunc) -> Result<Object> {
         match func.body {
-            FunctionBody::RustFn(ref funcb) => self.call_rust_func((*funcb).as_ref()),
+            FunctionBody::RustFn(ref mut funcb) => self.call_rust_func((*funcb).as_mut()),
             FunctionBody::LispFn(ref funcb) => {
-                if let Some(arglist) = func.arglist.into_cons() {
-                    self.get_args_for_lisp_func(arglist)?;
-                    let mut ret = Object::nil();
-                    for line in funcb {
-                        ret = self.evaluate(*line)?;
+                if let Some(arglist) = func.arglist {
+                    if let Some(arglist) = arglist.into_cons() {
+                        self.get_args_for_lisp_func(arglist)?;
+                        let mut ret = Object::nil();
+                        for line in funcb {
+                            ret = self.evaluate(*line)?;
+                        }
+                        self.pop_args_from_lisp_func(arglist)?;
+                        Ok(ret)
+                    } else {
+                        Err(ErrorKind::WrongType(RlispType::Cons, arglist.what_type()).into())
                     }
-                    self.pop_args_from_lisp_func(arglist)?;
-                    Ok(ret)
                 } else {
-                    Err(ErrorKind::WrongType(RlispType::Cons, func.arglist.what_type()).into())
+                    Err(ErrorKind::Unbound.into())
                 }
             }
         }
@@ -102,7 +108,7 @@ pub trait Evaluator: lisp::Symbols + lisp::stack_storage::Stack {
 }
 
 impl Evaluator for lisp::Lisp {
-    fn call_rust_func(&mut self, func: &Fn(&mut lisp::Lisp) -> Result<Object>) -> Result<Object> {
+    fn call_rust_func(&mut self, func: &mut RlispBuiltinFunc) -> Result<Object> {
         func(self)
     }
 }

@@ -123,9 +123,9 @@ impl Object {
             None
         }
     }
-    pub fn into_function<'unbound>(self) -> Option<&'unbound RlispFunc> {
+    pub fn into_function<'unbound>(self) -> Option<&'unbound mut RlispFunc> {
         if let Object::Function(ptr) = self {
-            Some(unsafe { &(*ptr) })
+            Some(unsafe { &mut (*(ptr as *mut RlispFunc)) })
         } else {
             None
         }
@@ -238,6 +238,12 @@ impl convert::From<*mut Symbol> for Object {
 impl convert::From<*mut RlispFunc> for Object {
     fn from(func: *mut RlispFunc) -> Self {
         Object::Function(func as _)
+    }
+}
+
+impl convert::From<bool> for Object {
+    fn from(b: bool) -> Self {
+        Object::Bool(b)
     }
 }
 

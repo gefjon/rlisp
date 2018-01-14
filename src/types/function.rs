@@ -1,19 +1,29 @@
-use lisp;
-use result::*;
 use types::*;
 use gc::{GarbageCollected, GcMark};
 use std::fmt;
+use builtins;
 
 pub struct RlispFunc {
-    pub arglist: Object,
+    pub arglist: Option<Object>,
     pub body: FunctionBody,
     gc_marking: GcMark,
     name: Option<Object>,
 }
 
 pub enum FunctionBody {
-    RustFn(Box<Fn(&mut lisp::Lisp) -> Result<Object>>),
+    RustFn(Box<builtins::RlispBuiltinFunc>),
     LispFn(Vec<Object>),
+}
+
+impl RlispFunc {
+    pub fn from_builtin(fun: Box<builtins::RlispBuiltinFunc>) -> Self {
+        Self {
+            arglist: None,
+            body: FunctionBody::RustFn(fun),
+            gc_marking: 0,
+            name: None,
+        }
+    }
 }
 
 impl GarbageCollected for RlispFunc {

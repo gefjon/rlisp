@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::default::Default;
 use types::*;
+use builtins;
 
 mod macro_char_table;
 pub use self::macro_char_table::MacroChars;
@@ -72,14 +73,30 @@ pub struct Lisp {
     pub alloced_objects: Vec<Object>,
 }
 
+impl Lisp {
+    fn source_builtins(&mut self, mut builtin_funcs: Vec<builtins::RlispBuiltinTuple>) {
+        use lisp::allocate::AllocObject;
+        for (name, fun) in builtin_funcs.drain(..) {
+            let fun = self.alloc(RlispFunc::from_builtin(fun));
+            if let Some(sym) = self.intern(name).into_symbol_mut() {
+                sym.set(fun);
+            } else {
+                unreachable!()
+            }
+        }
+    }
+}
+
 impl Default for Lisp {
     fn default() -> Self {
-        Self {
+        let mut me = Self {
             symbols: HashMap::new(),
             macro_chars: INITIAL_MACRO_CHARS.iter().cloned().collect(),
             current_gc_mark: 1,
             stack: Vec::new(),
             alloced_objects: Vec::new(),
-        }
+        };
+        me.source_builtins(builtins::make_builtins());
+        me
     }
 }
