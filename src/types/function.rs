@@ -5,8 +5,15 @@ use gc::{GarbageCollected, GcMark};
 use std::fmt;
 
 pub struct RlispFunc {
+    pub arglist: Object,
+    pub body: FunctionBody,
     gc_marking: GcMark,
     name: Option<Object>,
+}
+
+pub enum FunctionBody {
+    RustFn(Box<Fn(&mut lisp::Lisp) -> Result<Object>>),
+    LispFn(Vec<Object>),
 }
 
 impl GarbageCollected for RlispFunc {
@@ -28,11 +35,3 @@ impl fmt::Display for RlispFunc {
         }
     }
 }
-
-pub trait EvalFunc: lisp::stack_storage::Stack {
-    fn funcall(&mut self, _func: &RlispFunc) -> Result<Object> {
-        unimplemented!()
-    }
-}
-
-impl EvalFunc for lisp::Lisp {}

@@ -42,6 +42,10 @@ mod result {
                 description("tried to evaluate a list whose car was not a funciton"),
                 display("tried to evaluate a list whose car was not a funciton"),
             }
+            WrongType(expected: ::types::RlispType, got: ::types::RlispType) {
+                description("a type mismatch error"),
+                display("Expected type {:?}, found type {:?}", expected, got),
+            }
         }
     }
 }

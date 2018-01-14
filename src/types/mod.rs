@@ -26,7 +26,7 @@ pub enum Object {
     Bool(bool),
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum RlispType {
     Cons,
     Num,
@@ -105,6 +105,13 @@ impl Object {
     pub fn into_symbol<'unbound>(self) -> Option<&'unbound Symbol> {
         if let Object::Sym(ptr) = self {
             Some(unsafe { &(*ptr) })
+        } else {
+            None
+        }
+    }
+    pub fn into_symbol_mut<'unbound>(self) -> Option<&'unbound mut Symbol> {
+        if let Object::Sym(ptr) = self {
+            Some(unsafe { &mut (*(ptr as *mut Symbol)) })
         } else {
             None
         }

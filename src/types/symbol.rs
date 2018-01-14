@@ -9,7 +9,7 @@ use std::default::Default;
 
 pub struct Symbol {
     pub name: String,
-    val: Binding,
+    pub val: Binding,
     pub gc_marking: GcMark,
 }
 
@@ -19,7 +19,7 @@ pub struct Binding {
 }
 
 impl Binding {
-    fn push(&mut self, val: Object) {
+    pub fn push(&mut self, val: Object) {
         let old_binding = mem::replace(
             self,
             Binding {
@@ -30,7 +30,7 @@ impl Binding {
         let boxed = Box::new(old_binding);
         self.prev = Some(boxed);
     }
-    fn pop(&mut self) -> Option<Object> {
+    pub fn pop(&mut self) -> Option<Object> {
         if let Some(mut prev) = mem::replace(&mut self.prev, None) {
             mem::swap(self, &mut *prev);
             if let Binding {

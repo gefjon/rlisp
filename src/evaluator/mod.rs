@@ -2,8 +2,10 @@ use lisp;
 use result::*;
 use types::*;
 use list;
+use list::ConsIteratorResult;
+use types::function::*;
 
-pub trait Evaluator: lisp::Symbols + function::EvalFunc {
+pub trait Evaluator: lisp::Symbols + lisp::stack_storage::Stack {
     fn evaluate(&mut self, input: Object) -> Result<Object> {
         match input {
             Object::Sym(s) => self.eval_symbol(s),
@@ -19,7 +21,6 @@ pub trait Evaluator: lisp::Symbols + function::EvalFunc {
         }
     }
     fn eval_list(&mut self, c: *const ConsCell) -> Result<Object> {
-        use list::ConsIteratorResult;
         let mut iter = list::iter(unsafe { &(*c) });
         let func = match iter.improper_next() {
             ConsIteratorResult::More(obj) => {
@@ -43,6 +44,65 @@ pub trait Evaluator: lisp::Symbols + function::EvalFunc {
         }
         self.funcall(func)
     }
+    fn call_rust_func(&mut self, func: &Fn(&mut lisp::Lisp) -> Result<Object>) -> Result<Object>;
+    fn funcall(&mut self, func: &RlispFunc) -> Result<Object> {
+        match func.body {
+            FunctionBody::RustFn(ref funcb) => self.call_rust_func((*funcb).as_ref()),
+            FunctionBody::LispFn(ref funcb) => {
+                if let Some(arglist) = func.arglist.into_cons() {
+                    self.get_args_for_lisp_func(arglist)?;
+                    let mut ret = Object::nil();
+                    for line in funcb {
+                        ret = self.evaluate(*line)?;
+                    }
+                    self.pop_args_from_lisp_func(arglist)?;
+                    Ok(ret)
+                } else {
+                    Err(ErrorKind::WrongType(RlispType::Cons, func.arglist.what_type()).into())
+                }
+            }
+        }
+    }
+    fn get_args_for_lisp_func(&mut self, arglist: &ConsCell) -> Result<()> {
+        let mut iter = list::iter(arglist);
+        loop {
+            let res = iter.improper_next();
+            if let ConsIteratorResult::More(sym) = res {
+                if let Some(sym) = sym.into_symbol_mut() {
+                    sym.val.push(self.pop()?);
+                } else {
+                    return Err(ErrorKind::WrongType(RlispType::Sym, sym.what_type()).into());
+                }
+            } else if let ConsIteratorResult::Final(Some(_)) = res {
+                return Err(ErrorKind::ImproperList.into());
+            } else {
+                break;
+            }
+        }
+        Ok(())
+    }
+    fn pop_args_from_lisp_func(&mut self, arglist: &ConsCell) -> Result<()> {
+        let mut iter = list::iter(arglist);
+        loop {
+            let res = iter.improper_next();
+            if let ConsIteratorResult::More(sym) = res {
+                if let Some(sym) = sym.into_symbol_mut() {
+                    sym.val.pop();
+                } else {
+                    return Err(ErrorKind::WrongType(RlispType::Sym, sym.what_type()).into());
+                }
+            } else if let ConsIteratorResult::Final(Some(_)) = res {
+                return Err(ErrorKind::ImproperList.into());
+            } else {
+                break;
+            }
+        }
+        Ok(())
+    }
 }
 
-impl Evaluator for lisp::Lisp {}
+impl Evaluator for lisp::Lisp {
+    fn call_rust_func(&mut self, func: &Fn(&mut lisp::Lisp) -> Result<Object>) -> Result<Object> {
+        func(self)
+    }
+}
