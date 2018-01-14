@@ -1,7 +1,7 @@
 use std::fmt;
 use list;
 use super::Object;
-use gc::GcMark;
+use gc::{GarbageCollected, GcMark};
 
 #[derive(Clone)]
 pub struct ConsCell {
@@ -27,6 +27,19 @@ impl ConsCell {
     }
     pub fn should_dealloc(&self, current_marking: GcMark) -> bool {
         self.gc_marking != current_marking
+    }
+}
+
+impl GarbageCollected for ConsCell {
+    fn my_marking(&self) -> &GcMark {
+        &self.gc_marking
+    }
+    fn my_marking_mut(&mut self) -> &mut GcMark {
+        &mut self.gc_marking
+    }
+    fn gc_mark_children(&mut self, mark: GcMark) {
+        self.car.gc_mark(mark);
+        self.cdr.gc_mark(mark);
     }
 }
 

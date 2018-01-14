@@ -50,3 +50,18 @@ impl GarbageCollector for lisp::Lisp {
         }
     }
 }
+
+pub trait GarbageCollected {
+    fn my_marking(&self) -> &GcMark;
+    fn my_marking_mut(&mut self) -> &mut GcMark;
+    fn gc_mark_children(&mut self, mark: GcMark);
+    fn gc_mark(&mut self, mark: GcMark) {
+        if *(self.my_marking()) != mark {
+            *(self.my_marking_mut()) = mark;
+            self.gc_mark_children(mark);
+        }
+    }
+    fn should_dealloc(&self, current_marking: GcMark) -> bool {
+        *(self.my_marking()) != current_marking
+    }
+}

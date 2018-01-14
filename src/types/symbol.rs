@@ -3,7 +3,7 @@ use std::cmp::{Eq, PartialEq};
 use std::str::FromStr;
 use result::*;
 use types::*;
-use gc::GcMark;
+use gc::{GarbageCollected, GcMark};
 
 #[derive(Clone)]
 pub struct Symbol {
@@ -23,18 +23,21 @@ impl FromStr for Symbol {
     }
 }
 
-impl Symbol {
-    pub fn should_dealloc(&self, current_marking: GcMark) -> bool {
-        self.gc_marking != current_marking
+impl GarbageCollected for Symbol {
+    fn my_marking(&self) -> &GcMark {
+        &self.gc_marking
     }
-    pub fn gc_mark(&mut self, mark: GcMark) {
-        if self.gc_marking != mark {
-            self.gc_marking = mark;
-            if let Some(obj) = self.val {
-                obj.gc_mark(mark);
-            }
+    fn my_marking_mut(&mut self) -> &mut GcMark {
+        &mut self.gc_marking
+    }
+    fn gc_mark_children(&mut self, mark: GcMark) {
+        if let Some(obj) = self.val {
+            obj.gc_mark(mark);
         }
     }
+}
+
+impl Symbol {
     pub fn from_string(sym: String) -> Self {
         Symbol {
             name: sym,

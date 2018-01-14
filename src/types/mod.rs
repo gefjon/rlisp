@@ -1,6 +1,7 @@
 use std::fmt;
 use std::convert;
 use std::boxed::Box;
+use gc::GarbageCollected;
 
 pub mod string;
 pub use self::string::RlispString;

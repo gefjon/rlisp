@@ -1,19 +1,20 @@
 use std::convert;
 use std::fmt;
-use gc::GcMark;
+use gc::{GarbageCollected, GcMark};
 
 pub struct RlispString {
     pub gc_marking: GcMark,
     pub val: String,
 }
 
-impl RlispString {
-    pub fn should_dealloc(&self, current_marking: GcMark) -> bool {
-        self.gc_marking != current_marking
+impl GarbageCollected for RlispString {
+    fn my_marking(&self) -> &GcMark {
+        &self.gc_marking
     }
-    pub fn gc_mark(&mut self, mark: GcMark) {
-        self.gc_marking = mark
+    fn my_marking_mut(&mut self) -> &mut GcMark {
+        &mut self.gc_marking
     }
+    fn gc_mark_children(&mut self, _mark: GcMark) {}
 }
 
 impl fmt::Display for RlispString {
