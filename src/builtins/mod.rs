@@ -4,6 +4,11 @@ use lisp;
 use lisp::stack_storage::Stack;
 use std::boxed::Box;
 
+// This macro is the main part of this module. See make_builtins() for
+// its use.  Each function consists of a string name, a list of
+// identifiers which will have args bound to them, and a block which
+// returns an Object. The block can use the `?` operator, but should
+// do so sparingly
 macro_rules! builtin_functions {
     ($($name:expr ; ($($arg:ident) *) -> $blk:block),*) => {
          {

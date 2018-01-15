@@ -1,3 +1,8 @@
+/*
+This module contains types and methods for raw cons
+cells. Higher-level List methods are contained in the module list.
+*/
+
 use std::fmt;
 use list;
 use super::Object;
@@ -17,16 +22,6 @@ impl ConsCell {
             cdr: cdr,
             gc_marking: 0,
         }
-    }
-    pub fn gc_mark(&mut self, mark: GcMark) {
-        if self.gc_marking != mark {
-            self.gc_marking = mark;
-            self.car.gc_mark(mark);
-            self.cdr.gc_mark(mark);
-        }
-    }
-    pub fn should_dealloc(&self, current_marking: GcMark) -> bool {
-        self.gc_marking != current_marking
     }
 }
 
@@ -70,37 +65,5 @@ impl fmt::Display for ConsCell {
 
         write!(f, ")")?;
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::ConsCell;
-    use types::*;
-    use list;
-    #[test]
-    fn display_list() {
-        let my_list = list::from_vec(vec![
-            Object::float(3.2),
-            Object::fixnum(18),
-            Object::nil(),
-            Object::fixnum(0),
-        ]);
-        assert_eq!("(3.2 18 nil 0)", format!("{}", my_list));
-    }
-    #[test]
-    fn display_pair() {
-        let my_pair = ConsCell::new(Object::float(2.2), Object::fixnum(12));
-        assert_eq!("(2.2 . 12)", format!("{}", my_pair));
-    }
-    #[test]
-    fn display_improper_list() {
-        let my_improper_list = list::improper_from_vec(vec![
-            Object::float(3.2),
-            Object::fixnum(18),
-            Object::nil(),
-            Object::fixnum(0),
-        ]);
-        assert_eq!("(3.2 18 nil . 0)", format!("{}", my_improper_list));
     }
 }

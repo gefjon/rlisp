@@ -5,6 +5,11 @@ use super::Rep;
 use lisp::Lisp;
 use std::default::Default;
 
+// This is the struct that bin/repl.rs
+// uses. StdIoRepl::default().repl().unwrap() will run an Rlisp REPL
+// and exit either on I/O error or on EOF. Note: because it will not
+// exit on an internal error, the stack can become deformed when an
+// operation goes wrong.
 pub struct StdIoRepl {
     lisp: Lisp,
 }

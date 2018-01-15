@@ -2,8 +2,14 @@ use result::*;
 use lisp::Lisp;
 use types::*;
 
+// stdio contains the REPL which reads from Stdin and prints to Stdout
 pub mod stdio;
 
+// Rep::rep(&mut Iterator<u8>) -> Result<String> is the forward-facing
+// method of this trait. This trait should be accessed by a struct
+// which owns a lisp::Lisp and which implements a way to create an
+// Iterator<u8> (probably by io::Read::bytes()) and to print a string
+// or an Err
 pub trait Rep<V: Iterator<Item = u8>>
     : ::reader::Reader<V> + ::evaluator::Evaluator {
     fn read(&mut self, input: &mut V) -> Result<Option<Object>> {

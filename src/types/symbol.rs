@@ -9,29 +9,58 @@ use std::default::Default;
 
 pub struct Symbol {
     pub name: String,
-    pub val: Binding,
+    val: Binding,
     pub gc_marking: GcMark,
 }
 
 impl Symbol {
+    pub fn from_string(sym: String) -> Self {
+        Symbol {
+            name: sym,
+            val: Binding::default(),
+            gc_marking: 0,
+        }
+    }
     pub fn push(&mut self, val: Object) {
+        // called when creating a local binding
         self.val.push(val);
     }
     pub fn pop(&mut self) -> Option<Object> {
+        // called when ending a local binding
         self.val.pop()
     }
-    pub fn set(&mut self, val: Object) {
+    pub fn reset(&mut self, val: Object) {
+        // called by `defvar` and similar
         self.val = Binding::from(val)
+    }
+    pub fn set(&mut self, val: Object) {
+        // called by `setf` and similar
+        self.val.set(val);
+    }
+    pub fn get(&self) -> Option<Object> {
+        self.val.get()
     }
 }
 
 pub struct Binding {
+    // Bindings are a singly-linked list. Function calls, `let`, and
+    // similar local bindings push to the lists and pop when their
+    // scopes end. `defun`, `defvar`, etc. replace the entire list of
+    // Bindings. `setf` replaces the head of the list but leaves the
+    // rest intact.
     bind: Option<Object>,
     prev: Option<Box<Binding>>,
 }
 
 impl Binding {
-    pub fn push(&mut self, val: Object) {
+    // Binding's methods are private so that they can be changed easily.
+    fn get(&self) -> Option<Object> {
+        self.bind
+    }
+    fn set(&mut self, val: Object) {
+        self.bind = Some(val);
+    }
+    fn push(&mut self, val: Object) {
         let old_binding = mem::replace(
             self,
             Binding {
@@ -42,7 +71,7 @@ impl Binding {
         let boxed = Box::new(old_binding);
         self.prev = Some(boxed);
     }
-    pub fn pop(&mut self) -> Option<Object> {
+    fn pop(&mut self) -> Option<Object> {
         if let Some(mut prev) = mem::replace(&mut self.prev, None) {
             mem::swap(self, &mut *prev);
             if let Binding {
@@ -80,11 +109,7 @@ impl Default for Binding {
 impl FromStr for Symbol {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self> {
-        Ok(Symbol {
-            name: String::from(s),
-            val: Binding::default(),
-            gc_marking: 0,
-        })
+        Ok(Symbol::from_string(String::from(s)))
     }
 }
 
@@ -96,31 +121,13 @@ impl GarbageCollected for Symbol {
         &mut self.gc_marking
     }
     fn gc_mark_children(&mut self, mark: GcMark) {
-        if let Some(val) = self.evaluate() {
+        if let Some(val) = self.get() {
             val.gc_mark(mark);
         }
     }
 }
 
-impl Symbol {
-    pub fn evaluate(&self) -> Option<Object> {
-        if let Binding {
-            bind: Some(val), ..
-        } = self.val
-        {
-            Some(val)
-        } else {
-            None
-        }
-    }
-    pub fn from_string(sym: String) -> Self {
-        Symbol {
-            name: sym,
-            val: Binding::default(),
-            gc_marking: 0,
-        }
-    }
-}
+impl Symbol {}
 
 impl PartialEq for Symbol {
     fn eq(&self, other: &Self) -> bool {

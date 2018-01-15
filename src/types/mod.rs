@@ -1,3 +1,16 @@
+/*
+Rlisp's Object types are Copy and are passed by value. bools and
+Numbers (f64s) are passed by value, but everything else is included as
+a *const T in Object. Many functions mutate the things pointed to
+after casting to *mut T, but the pointers are stored as *const T to
+encourage cloning over mutation.
+
+It doesn't make a lot of sense to store Symbols as *const Symbol,
+since they are frequently mutated (rebound), or functions, since they
+implement FnMut, and those types could in the future could be changed
+to *mut T, but for now they are *const for consistence.
+*/
+
 use std::fmt;
 use std::default::Default;
 use std::convert;
@@ -38,12 +51,18 @@ pub enum RlispType {
 
 impl Object {
     pub fn nil() -> Self {
+        // returns the object which the symbol `nil` evauluates to
         Object::Bool(false)
     }
     pub fn t() -> Self {
+        // returns the object which the symbol `t` evaluates to
         Object::Bool(true)
     }
     pub fn boolp(self) -> bool {
+        // true if self is a bool. note that any object can be cast to
+        // bool, and every object other than `nil` evaluates to true,
+        // but that this method treats only exactly `t` and `nil` as
+        // bools, and returns false for any other Object.
         if let Object::Bool(_) = self {
             true
         } else {
@@ -65,6 +84,10 @@ impl Object {
         }
     }
     pub fn consp(self) -> bool {
+        // note that being a cons does not mean being a proper
+        // list. listp is a more expensive (and as yet unimplemented)
+        // operation which involves traversing the list to check that
+        // it is nil-terminated.
         if let Object::Cons(_) = self {
             true
         } else {
@@ -86,6 +109,8 @@ impl Object {
         }
     }
     pub fn nilp(self) -> bool {
+        // the logical inverse of casting an Object to bool; true iff
+        // self == Object::nil().
         if let Object::Bool(false) = self {
             true
         } else {
@@ -93,6 +118,8 @@ impl Object {
         }
     }
     pub fn what_type(self) -> RlispType {
+        // this is basically a cleaner version of mem::discriminant
+        // for Objects
         match self {
             Object::Cons(_) => RlispType::Cons,
             Object::Num(_) => RlispType::Num,
@@ -110,6 +137,7 @@ impl Object {
         }
     }
     pub fn into_symbol_mut<'unbound>(self) -> Option<&'unbound mut Symbol> {
+        // binding a symbol requires &mut Symbol (duh)
         if let Object::Sym(ptr) = self {
             Some(unsafe { &mut (*(ptr as *mut Symbol)) })
         } else {
@@ -124,6 +152,8 @@ impl Object {
         }
     }
     pub fn into_function<'unbound>(self) -> Option<&'unbound mut RlispFunc> {
+        // because builtin functions are FnMut, it is only ever
+        // meaningful to return a &mut RlispFunc
         if let Object::Function(ptr) = self {
             Some(unsafe { &mut (*(ptr as *mut RlispFunc)) })
         } else {
@@ -131,6 +161,9 @@ impl Object {
         }
     }
     pub unsafe fn deallocate(self) {
+        // this should only ever be called by the garbage collector!
+        // potential future change: move from being a pub Object
+        // method to being a private function in gc
         match self {
             Object::Num(_) | Object::Bool(_) => (),
             Object::Cons(c) => {
@@ -148,6 +181,11 @@ impl Object {
         }
     }
     pub fn gc_mark(self, marking: ::gc::GcMark) {
+        // Object could probably implement gc::GarbageCollected, but
+        // as of now it doesn't. Because of that, it instead has this
+        // method and should_dealloc which mimic
+        // GarbageCollected::{gc_mark, should_dealloc} and are called
+        // by various types' gc_mark_children methods.
         match self {
             Object::Num(_) | Object::Bool(_) => (),
             Object::Cons(c) => unsafe { (*(c as *mut ConsCell)).gc_mark(marking) },
@@ -182,12 +220,14 @@ impl fmt::Display for Object {
 }
 
 impl Default for Object {
+    // the default Object is `t`
     fn default() -> Self {
         Object::Bool(true)
     }
 }
 
 impl convert::From<Object> for bool {
+    // in a lisp, every Object except `nil` evaluates true
     fn from(obj: Object) -> bool {
         !obj.nilp()
     }
@@ -254,6 +294,9 @@ impl convert::From<f64> for Object {
 }
 
 impl convert::From<isize> for Object {
+    // this trait is kind of meaningless since all numbers in Rlisp
+    // are currently f64s, but if the language ever gets an int type
+    // for optimization, this may be useful.
     fn from(num: isize) -> Self {
         Object::from(num as f64)
     }

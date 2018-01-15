@@ -1,9 +1,20 @@
+/*
+This module stores functions, but they are constructed by `builtins`
+and evaluated by `evaluator`.
+*/
+
 use types::*;
 use gc::{GarbageCollected, GcMark};
 use std::fmt;
 use builtins;
 
 pub struct RlispFunc {
+    // arglist is currently an Option because I haven't bothered to
+    // make the builtin macro generate an arglist. That is an
+    // important quality-of-life improvement that should be done
+    // before too long.
+
+    // TODO: docstrings
     pub arglist: Option<Object>,
     pub body: FunctionBody,
     gc_marking: GcMark,
