@@ -10,14 +10,21 @@ use list;
 use list::ConsIteratorResult;
 use types::function::*;
 use builtins::RlispBuiltinFunc;
+use gc;
 
-pub trait Evaluator: lisp::Symbols + lisp::stack_storage::Stack {
+pub trait Evaluator
+    : lisp::Symbols + lisp::stack_storage::Stack + gc::GarbageCollector + list::ListOps
+    {
     fn evaluate(&mut self, input: Object) -> Result<Object> {
-        match input {
+        self.push(input);
+        self.gc_maybe_pass();
+        let res = match input {
             Object::Sym(s) => self.eval_symbol(s),
             Object::Cons(c) => self.eval_list(c),
             Object::Bool(_) | Object::String(_) | Object::Num(_) | Object::Function(_) => Ok(input),
-        }
+        };
+        self.pop()?;
+        res
     }
     fn eval_symbol(&mut self, s: *const Symbol) -> Result<Object> {
         if let Some(obj) = unsafe { (*s).get() } {
@@ -31,28 +38,25 @@ pub trait Evaluator: lisp::Symbols + lisp::stack_storage::Stack {
         // and calling it with the rest of the list as arguments.
         // Future improvement: push NumArgs to the stack to allow for
         // &optional and &rest args
-        let mut iter = list::iter(unsafe { &(*c) });
-        let func = match iter.improper_next() {
-            ConsIteratorResult::More(obj) => {
-                if let Some(f) = self.evaluate(obj)?.into_function() {
-                    f
-                } else {
-                    return Err(ErrorKind::NotAFunction.into());
-                }
-            }
-            _ => unreachable!(), // lists always have at least one item
-        };
+        let &ConsCell { car, cdr, .. } = unsafe { &(*c) };
+
+        let mut iter = list::iter(self.list_reverse(cdr.into_cons_or_error()?)
+            .into_cons_or_error()?);
+        let func = self.evaluate(car)?.into_function_or_error()?;
+        let mut num_args: usize = 0;
         loop {
             let res = iter.improper_next();
             if let list::ConsIteratorResult::Final(Some(_)) = res {
                 return Err(ErrorKind::ImproperList.into());
             } else if let list::ConsIteratorResult::More(obj) = res {
                 let obj = self.evaluate(obj)?;
+                num_args += 1;
                 self.push(obj);
             } else {
                 break;
             }
         }
+        self.push(Object::from(num_args));
         self.funcall(func)
     }
     fn call_rust_func(&mut self, func: &mut RlispBuiltinFunc) -> Result<Object>;
@@ -68,8 +72,6 @@ pub trait Evaluator: lisp::Symbols + lisp::stack_storage::Stack {
             // args are still pushed to the stack, but the RustFn
             // pop()s them itself
             FunctionBody::LispFn(ref funcb) => {
-                // Future improvement: push NumArgs to the stack to
-                // allow for &optional and &rest args
                 if let Some(arglist) = func.arglist {
                     if let Some(arglist) = arglist.into_cons() {
                         self.get_args_for_lisp_func(arglist)?;
@@ -94,6 +96,16 @@ pub trait Evaluator: lisp::Symbols + lisp::stack_storage::Stack {
 
         // Future improvement: push NumArgs to the stack to allow for
         // &optional and &rest args
+        let expected_args_count = Object::from(list::length(arglist));
+        let num_args = self.pop()?;
+        if !::math::num_equals(expected_args_count, num_args) {
+            return Err(unsafe {
+                ErrorKind::WrongArgsCount(
+                    expected_args_count.into_usize_unchecked(),
+                    num_args.into_usize_unchecked(),
+                ).into()
+            });
+        }
         let mut iter = list::iter(arglist);
         loop {
             let res = iter.improper_next();

@@ -1,3 +1,5 @@
+#![recursion_limit = "1024"]
+
 #[macro_use]
 extern crate error_chain;
 
@@ -46,6 +48,10 @@ mod result {
                 description("a type mismatch error"),
                 display("Expected type {:?}, found type {:?}", expected, got),
             }
+            WrongArgsCount(expected: usize, got: usize) {
+                description("wrong number of args passed to a function"),
+                display("Expected {} args but got {}", expected, got),
+            }
         }
     }
 }
@@ -54,6 +60,7 @@ mod gc;
 mod reader;
 mod evaluator;
 mod builtins;
+mod math;
 pub mod types;
 pub mod repl;
 pub mod lisp;

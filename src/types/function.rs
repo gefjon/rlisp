@@ -9,10 +9,8 @@ use std::fmt;
 use builtins;
 
 pub struct RlispFunc {
-    // arglist is currently an Option because I haven't bothered to
-    // make the builtin macro generate an arglist. That is an
-    // important quality-of-life improvement that should be done
-    // before too long.
+    // arglist is an Option so that methods can be chained
+    // (from_builtin().with_arglist().with_name())
 
     // TODO: docstrings
     pub arglist: Option<Object>,
@@ -34,6 +32,14 @@ impl RlispFunc {
             gc_marking: 0,
             name: None,
         }
+    }
+    pub fn with_arglist(mut self, arglist: Object) -> Self {
+        self.arglist = Some(arglist);
+        self
+    }
+    pub fn with_name(mut self, name: Object) -> Self {
+        self.name = Some(name);
+        self
     }
 }
 

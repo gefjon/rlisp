@@ -19,7 +19,11 @@ pub trait GarbageCollector
 // This trait is implemented by lisp::Lisp
 // its methods amount to a simple mark+sweep garbage collector
 {
+    fn should_gc_run(&self) -> bool;
+    fn update_gc_threshold(&mut self);
     fn current_marking(&self) -> GcMark;
+    fn inc_gc_mark(&mut self);
+    fn mark_symbols(&mut self);
     fn mark_stack(&mut self) {
         for obj in self.stack_vec() {
             self.mark(*obj);
@@ -38,17 +42,27 @@ pub trait GarbageCollector
             }
         }
     }
-    fn inc_gc_mark(&mut self);
-    fn mark_symbols(&mut self);
     fn gc_pass(&mut self) {
         self.mark_stack();
         self.mark_symbols();
         self.sweep();
         self.inc_gc_mark();
+        self.update_gc_threshold();
+    }
+    fn gc_maybe_pass(&mut self) {
+        if self.should_gc_run() {
+            self.gc_pass();
+        }
     }
 }
 
 impl GarbageCollector for lisp::Lisp {
+    fn should_gc_run(&self) -> bool {
+        self.alloced_objects.len() > self.gc_threshold
+    }
+    fn update_gc_threshold(&mut self) {
+        self.gc_threshold = 2 * self.alloced_objects.len();
+    }
     fn current_marking(&self) -> GcMark {
         self.current_gc_mark
     }

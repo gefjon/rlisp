@@ -1,7 +1,6 @@
 use std::{convert, fmt, mem};
 use std::cmp::{Eq, PartialEq};
 use std::str::FromStr;
-use result::*;
 use types::*;
 use gc::{GarbageCollected, GcMark};
 use std::boxed::Box;

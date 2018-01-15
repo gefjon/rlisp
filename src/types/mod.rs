@@ -10,7 +10,7 @@ since they are frequently mutated (rebound), or functions, since they
 implement FnMut, and those types could in the future could be changed
 to *mut T, but for now they are *const for consistence.
 */
-
+use result::*;
 use std::fmt;
 use std::default::Default;
 use std::convert;
@@ -129,6 +129,28 @@ impl Object {
             Object::Bool(_) => RlispType::Bool,
         }
     }
+    pub fn into_usize(self) -> Option<usize> {
+        if let Object::Num(float) = self {
+            if (float > ::std::usize::MIN as _) && (float < ::std::usize::MAX as _) {
+                return Some(float as usize);
+            }
+        }
+        None
+    }
+    pub unsafe fn into_usize_unchecked(self) -> usize {
+        if let Object::Num(float) = self {
+            float as usize
+        } else {
+            panic!()
+        }
+    }
+    pub fn into_float(self) -> Option<f64> {
+        if let Object::Num(float) = self {
+            Some(float)
+        } else {
+            None
+        }
+    }
     pub fn into_symbol<'unbound>(self) -> Option<&'unbound Symbol> {
         if let Object::Sym(ptr) = self {
             Some(unsafe { &(*ptr) })
@@ -151,6 +173,13 @@ impl Object {
             None
         }
     }
+    pub fn into_cons_or_error<'unbound>(self) -> Result<&'unbound ConsCell> {
+        if let Object::Cons(ptr) = self {
+            Ok(unsafe { &(*ptr) })
+        } else {
+            Err(ErrorKind::WrongType(RlispType::Cons, self.what_type()).into())
+        }
+    }
     pub fn into_function<'unbound>(self) -> Option<&'unbound mut RlispFunc> {
         // because builtin functions are FnMut, it is only ever
         // meaningful to return a &mut RlispFunc
@@ -158,6 +187,13 @@ impl Object {
             Some(unsafe { &mut (*(ptr as *mut RlispFunc)) })
         } else {
             None
+        }
+    }
+    pub fn into_function_or_error<'unbound>(self) -> Result<&'unbound mut RlispFunc> {
+        if let Object::Function(ptr) = self {
+            Ok(unsafe { &mut (*(ptr as *mut RlispFunc)) })
+        } else {
+            Err(ErrorKind::WrongType(RlispType::Function, self.what_type()).into())
         }
     }
     pub unsafe fn deallocate(self) {
@@ -290,6 +326,13 @@ impl convert::From<bool> for Object {
 impl convert::From<f64> for Object {
     fn from(num: f64) -> Self {
         Object::Num(num)
+    }
+}
+
+impl convert::From<usize> for Object {
+    // used for funcalls and such
+    fn from(num: usize) -> Self {
+        Object::from(num as f64)
     }
 }
 

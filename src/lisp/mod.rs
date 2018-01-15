@@ -71,14 +71,28 @@ pub struct Lisp {
     pub stack: Vec<Object>,
     pub current_gc_mark: ::gc::GcMark,
     pub alloced_objects: Vec<Object>,
+    pub gc_threshold: usize,
 }
 
 impl Lisp {
     fn source_builtins(&mut self, mut builtin_funcs: Vec<builtins::RlispBuiltinTuple>) {
         use lisp::allocate::AllocObject;
-        for (name, fun) in builtin_funcs.drain(..) {
-            let fun = self.alloc(RlispFunc::from_builtin(fun));
-            if let Some(sym) = self.intern(name).into_symbol_mut() {
+        use list::ListOps;
+        for (name, mut arglist, fun) in builtin_funcs.drain(..) {
+            let name = self.intern(name);
+            let arglist = {
+                let mut arg_syms = Vec::new();
+                for arg in arglist.drain(..) {
+                    arg_syms.push(self.intern(arg));
+                }
+                self.list_from_vec(arg_syms)
+            };
+            let fun = self.alloc(
+                RlispFunc::from_builtin(fun)
+                    .with_name(name)
+                    .with_arglist(arglist),
+            );
+            if let Some(sym) = name.into_symbol_mut() {
                 sym.set(fun);
             } else {
                 unreachable!()
@@ -95,6 +109,7 @@ impl Default for Lisp {
             current_gc_mark: 1,
             stack: Vec::new(),
             alloced_objects: Vec::new(),
+            gc_threshold: 16,
         };
         me.source_builtins(builtins::make_builtins());
         me

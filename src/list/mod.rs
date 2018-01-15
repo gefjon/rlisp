@@ -4,7 +4,7 @@ of conses). Those that require allocation (constructing lists, pushing
 to the head of lists (and popping, just for symmetry), etc.) are
 enclosed in the trait ListOps. `ConsCell`s can also be turned into a
 pseudo-Iterator using list::iter(ConsCell).
-*/
+ */
 use types::*;
 use lisp;
 use std::iter::{IntoIterator, Iterator};
@@ -47,9 +47,35 @@ pub trait ListOps: lisp::allocate::AllocObject {
             *list
         }
     }
+    fn list_reverse(&mut self, list: &ConsCell) -> Object {
+        // this method reverses a *PROPER* list
+        let mut head = Object::nil();
+        for el in list {
+            head = self.alloc(ConsCell::new(el, head));
+        }
+        head
+    }
 }
 
 impl ListOps for lisp::Lisp {}
+
+pub fn length(head: &ConsCell) -> usize {
+    let mut count = 0;
+    let mut iter = iter(head);
+    loop {
+        let res = iter.improper_next();
+        if let ConsIteratorResult::More(_) = res {
+            count += 1;
+        } else if let ConsIteratorResult::Final(maybe) = res {
+            if maybe.is_some() {
+                count += 1;
+            }
+            return count;
+        } else {
+            unreachable!()
+        }
+    }
+}
 
 pub fn iter(list: &ConsCell) -> ConsIterator {
     ConsIterator {
