@@ -8,6 +8,13 @@ use gc::{GarbageCollected, GcMark};
 use std::fmt;
 use builtins;
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum ArgType {
+    Mandatory,
+    Optional,
+    Rest,
+}
+
 pub struct RlispFunc {
     // arglist is an Option so that methods can be chained
     // (from_builtin().with_arglist().with_name())
@@ -50,7 +57,19 @@ impl GarbageCollected for RlispFunc {
     fn my_marking_mut(&mut self) -> &mut GcMark {
         &mut self.gc_marking
     }
-    fn gc_mark_children(&mut self, _mark: GcMark) {}
+    fn gc_mark_children(&mut self, mark: GcMark) {
+        if let FunctionBody::LispFn(ref vector) = self.body {
+            for obj in vector {
+                obj.gc_mark(mark);
+            }
+        }
+        if let Some(arglist) = self.arglist {
+            arglist.gc_mark(mark);
+        }
+        if let Some(name) = self.name {
+            name.gc_mark(mark);
+        }
+    }
 }
 
 impl fmt::Display for RlispFunc {
@@ -59,6 +78,32 @@ impl fmt::Display for RlispFunc {
             write!(f, "#'{}", name)
         } else {
             write!(f, "ANONYMOUS FUNCTION")
+        }
+    }
+}
+
+impl fmt::Debug for RlispFunc {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "[ function {} ({}) -> {:?} ]",
+            self.name.unwrap_or(Object::nil()),
+            self.arglist.unwrap_or(Object::nil()),
+            self.body
+        )
+    }
+}
+
+impl fmt::Debug for FunctionBody {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            FunctionBody::RustFn(_) => write!(f, "COMPILED BUILTIN"),
+            FunctionBody::LispFn(ref vector) => {
+                for el in vector {
+                    write!(f, "{:?}", el)?;
+                }
+                Ok(())
+            }
         }
     }
 }

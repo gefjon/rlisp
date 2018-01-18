@@ -1,3 +1,5 @@
+#![feature(trace_macros)]
+#![feature(log_syntax)]
 #![recursion_limit = "1024"]
 
 #[macro_use]
@@ -48,18 +50,23 @@ mod result {
                 description("a type mismatch error"),
                 display("Expected type {:?}, found type {:?}", expected, got),
             }
-            WrongArgsCount(expected: usize, got: usize) {
+            WrongArgsCount(got: usize, min: usize, max: Option<usize>) {
                 description("wrong number of args passed to a function"),
-                display("Expected {} args but got {}", expected, got),
+                display("got {} args, but wanted between {} and {:?}", got, min, max),
+            }
+            RequiresArglist {
+                description("the called function requires an arglist"),
+                display("the called function requires an arglist but did not have one"),
             }
         }
     }
 }
+#[macro_use]
+mod builtins;
 
 mod gc;
 mod reader;
 mod evaluator;
-mod builtins;
 mod math;
 pub mod types;
 pub mod repl;

@@ -26,6 +26,7 @@ pub trait GarbageCollector
     fn mark_symbols(&mut self);
     fn mark_stack(&mut self) {
         for obj in self.stack_vec() {
+            debug!("{} is accessible; marking it", obj);
             self.mark(*obj);
         }
     }
@@ -36,6 +37,7 @@ pub trait GarbageCollector
         let mut old_objs = mem::replace(self.objects_mut(), Vec::new());
         for obj in old_objs.drain(..) {
             if obj.should_dealloc(self.current_marking()) {
+                debug!("{} is not marked, deallocating it", obj);
                 unsafe { obj.deallocate() }
             } else {
                 self.objects_mut().push(obj);
@@ -51,6 +53,7 @@ pub trait GarbageCollector
     }
     fn gc_maybe_pass(&mut self) {
         if self.should_gc_run() {
+            debug!("running the garbage collector");
             self.gc_pass();
         }
     }

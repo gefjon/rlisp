@@ -41,6 +41,7 @@ impl Symbol {
     }
 }
 
+#[derive(Debug)]
 pub struct Binding {
     // Bindings are a singly-linked list. Function calls, `let`, and
     // similar local bindings push to the lists and pop when their
@@ -85,6 +86,14 @@ impl Binding {
             None
         }
     }
+    fn gc_mark(&self, mark: GcMark) {
+        if let Some(obj) = self.bind {
+            obj.gc_mark(mark);
+        }
+        if let Some(ref prev) = self.prev {
+            prev.gc_mark(mark);
+        }
+    }
 }
 
 impl convert::From<Object> for Binding {
@@ -120,9 +129,7 @@ impl GarbageCollected for Symbol {
         &mut self.gc_marking
     }
     fn gc_mark_children(&mut self, mark: GcMark) {
-        if let Some(val) = self.get() {
-            val.gc_mark(mark);
-        }
+        self.val.gc_mark(mark);
     }
 }
 
@@ -139,5 +146,11 @@ impl Eq for Symbol {}
 impl fmt::Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.name)
+    }
+}
+
+impl fmt::Debug for Symbol {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[ symbol {} -> {:?} ]", self.name, self.val)
     }
 }

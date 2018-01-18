@@ -67,3 +67,32 @@ impl fmt::Display for ConsCell {
         Ok(())
     }
 }
+impl fmt::Debug for ConsCell {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use list::ConsIteratorResult::*;
+
+        write!(f, "(")?;
+        let mut iter = list::iter(self);
+
+        if let More(obj) = iter.improper_next() {
+            // A list will always have a first item, so we don't need to check
+            // for Final in this one
+            write!(f, "{:?}", obj)?;
+        }
+
+        'iter: loop {
+            let res = iter.improper_next();
+            if let More(obj) = res {
+                write!(f, " {:?}", obj)?;
+            } else if let Final(Some(obj)) = res {
+                write!(f, " . {:?}", obj)?;
+                break 'iter;
+            } else {
+                break 'iter;
+            }
+        }
+
+        write!(f, ")")?;
+        Ok(())
+    }
+}

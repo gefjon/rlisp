@@ -17,6 +17,7 @@ pub mod stack_storage {
         fn push(&mut self, obj: Object);
         fn pop(&mut self) -> Result<Object>;
         fn stack_vec(&self) -> &Vec<Object>;
+        fn clean_stack(&mut self);
     }
     impl Stack for lisp::Lisp {
         fn push(&mut self, obj: Object) {
@@ -31,6 +32,9 @@ pub mod stack_storage {
         }
         fn stack_vec(&self) -> &Vec<Object> {
             &self.stack
+        }
+        fn clean_stack(&mut self) {
+            self.stack = Vec::new();
         }
     }
 }
@@ -112,6 +116,7 @@ impl Default for Lisp {
             gc_threshold: 16,
         };
         me.source_builtins(builtins::make_builtins());
+        me.source_builtins(::math::math_builtins::make_builtins());
         me
     }
 }

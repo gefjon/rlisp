@@ -11,9 +11,8 @@ implement FnMut, and those types could in the future could be changed
 to *mut T, but for now they are *const for consistence.
 */
 use result::*;
-use std::fmt;
+use std::{cmp, convert, fmt};
 use std::default::Default;
-use std::convert;
 use std::boxed::Box;
 use gc::GarbageCollected;
 
@@ -151,6 +150,13 @@ impl Object {
             None
         }
     }
+    pub fn into_float_or_error(self) -> Result<f64> {
+        if let Object::Num(float) = self {
+            Ok(float)
+        } else {
+            Err(ErrorKind::WrongType(RlispType::Num, self.what_type()).into())
+        }
+    }
     pub fn into_symbol<'unbound>(self) -> Option<&'unbound Symbol> {
         if let Object::Sym(ptr) = self {
             Some(unsafe { &(*ptr) })
@@ -164,6 +170,14 @@ impl Object {
             Some(unsafe { &mut (*(ptr as *mut Symbol)) })
         } else {
             None
+        }
+    }
+    pub fn into_symbol_mut_or_error<'unbound>(self) -> Result<&'unbound mut Symbol> {
+        // binding a symbol requires &mut Symbol (duh)
+        if let Object::Sym(ptr) = self {
+            Ok(unsafe { &mut (*(ptr as *mut Symbol)) })
+        } else {
+            Err(ErrorKind::WrongType(RlispType::Sym, self.what_type()).into())
         }
     }
     pub fn into_cons<'unbound>(self) -> Option<&'unbound ConsCell> {
@@ -200,19 +214,29 @@ impl Object {
         // this should only ever be called by the garbage collector!
         // potential future change: move from being a pub Object
         // method to being a private function in gc
+
+        debug!("deallocating {:?}", self);
         match self {
-            Object::Num(_) | Object::Bool(_) => (),
+            Object::Num(_) | Object::Bool(_) => debug!("deallocating {} is a no-op", self),
             Object::Cons(c) => {
+                debug!("building a box from {:?}", c);
                 Box::from_raw(c as *mut ConsCell);
+                debug!("box built, will drop it");
             }
             Object::Sym(s) => {
+                debug!("building a box from {:?}", s);
                 Box::from_raw(s as *mut Symbol);
+                debug!("box built, will drop it");
             }
             Object::String(s) => {
-                Box::from_raw(s as *mut String);
+                debug!("building a box from {:?}", s);
+                Box::from_raw(s as *mut RlispString);
+                debug!("box built, will drop it");
             }
             Object::Function(f) => {
+                debug!("building a box from {:?}", f);
                 Box::from_raw(f as *mut RlispFunc);
+                debug!("box built, will drop it");
             }
         }
     }
@@ -226,7 +250,7 @@ impl Object {
             Object::Num(_) | Object::Bool(_) => (),
             Object::Cons(c) => unsafe { (*(c as *mut ConsCell)).gc_mark(marking) },
             Object::Sym(s) => unsafe { (*(s as *mut Symbol)).gc_mark(marking) },
-            Object::String(_s) => unimplemented!(),
+            Object::String(s) => unsafe { (*(s as *mut RlispString)).gc_mark(marking) },
             Object::Function(f) => unsafe { (*(f as *mut RlispFunc)).gc_mark(marking) },
         }
     }
@@ -235,7 +259,7 @@ impl Object {
             Object::Num(_) | Object::Bool(_) => false,
             Object::Sym(s) => unsafe { (*s).should_dealloc(current_marking) },
             Object::Cons(c) => unsafe { (*c).should_dealloc(current_marking) },
-            Object::String(_s) => unimplemented!(),
+            Object::String(s) => unsafe { (*s).should_dealloc(current_marking) },
             Object::Function(f) => unsafe { (*f).should_dealloc(current_marking) },
         }
     }
@@ -251,6 +275,20 @@ impl fmt::Display for Object {
             Object::Cons(c) => unsafe { write!(f, "{}", *c) },
             Object::String(s) => unsafe { write!(f, "\"{}\"", *s) },
             Object::Function(func) => unsafe { write!(f, "{}", *func) },
+        }
+    }
+}
+
+impl fmt::Debug for Object {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Object::Bool(false) => write!(f, "nil"),
+            Object::Bool(true) => write!(f, "t"),
+            Object::Num(n) => write!(f, "{:?}", n),
+            Object::Sym(s) => unsafe { write!(f, "{:?}", *s) },
+            Object::Cons(c) => unsafe { write!(f, "{:?}", *c) },
+            Object::String(s) => unsafe { write!(f, "{:?}", *s) },
+            Object::Function(func) => unsafe { write!(f, "{:?}", *func) },
         }
     }
 }
@@ -342,5 +380,25 @@ impl convert::From<isize> for Object {
     // for optimization, this may be useful.
     fn from(num: isize) -> Self {
         Object::from(num as f64)
+    }
+}
+
+impl cmp::PartialEq for Object {
+    fn eq(&self, other: &Object) -> bool {
+        if let (&Object::Cons(lhs), &Object::Cons(rhs)) = (self, other) {
+            lhs == rhs
+        } else if let (&Object::Num(lhs), &Object::Num(rhs)) = (self, other) {
+            lhs == rhs
+        } else if let (&Object::Sym(lhs), &Object::Sym(rhs)) = (self, other) {
+            lhs == rhs
+        } else if let (&Object::String(lhs), &Object::String(rhs)) = (self, other) {
+            lhs == rhs
+        } else if let (&Object::Function(lhs), &Object::Function(rhs)) = (self, other) {
+            lhs == rhs
+        } else if let (&Object::Bool(lhs), &Object::Bool(rhs)) = (self, other) {
+            lhs == rhs
+        } else {
+            false
+        }
     }
 }

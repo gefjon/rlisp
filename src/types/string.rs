@@ -29,6 +29,12 @@ impl fmt::Display for RlispString {
     }
 }
 
+impl fmt::Debug for RlispString {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[ string \"{}\" ]", self.val)
+    }
+}
+
 impl convert::From<String> for RlispString {
     fn from(val: String) -> Self {
         Self { gc_marking: 0, val }
