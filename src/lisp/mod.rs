@@ -79,7 +79,7 @@ pub struct Lisp {
 }
 
 impl Lisp {
-    fn source_builtins(&mut self, mut builtin_funcs: Vec<builtins::RlispBuiltinTuple>) {
+    fn source_builtins(&mut self, mut builtin_funcs: builtins::RlispBuiltins) {
         use lisp::allocate::AllocObject;
         use list::ListOps;
         for (name, mut arglist, fun) in builtin_funcs.drain(..) {
@@ -94,13 +94,29 @@ impl Lisp {
             let fun = self.alloc(
                 RlispFunc::from_builtin(fun)
                     .with_name(name)
-                    .with_arglist(arglist),
+                    .with_arglist(arglist)
             );
-            if let Some(sym) = name.into_symbol_mut() {
-                sym.set(fun);
-            } else {
-                unreachable!()
-            }
+            name.into_symbol_mut_unchecked().set(fun);
+        }
+    }
+    fn source_special_forms(&mut self, mut special_forms: builtins::RlispSpecialForms) {
+        use lisp::allocate::AllocObject;
+        use list::ListOps;
+        for (name, mut arglist, fun) in special_forms.drain(..) {
+            let name = self.intern(name);
+            let arglist = {
+                let mut arg_syms = Vec::new();
+                for arg in arglist.drain(..) {
+                    arg_syms.push(self.intern(arg));
+                }
+                self.list_from_vec(arg_syms)
+            };
+            let fun = self.alloc(
+                RlispFunc::from_special_form(fun)
+                    .with_name(name)
+                    .with_arglist(arglist)
+            );
+            name.into_symbol_mut_unchecked().set(fun);
         }
     }
 }
@@ -115,6 +131,7 @@ impl Default for Lisp {
             alloced_objects: Vec::new(),
             gc_threshold: 16,
         };
+        me.source_special_forms(builtins::make_special_forms());
         me.source_builtins(builtins::make_builtins());
         me.source_builtins(::math::math_builtins::make_builtins());
         me

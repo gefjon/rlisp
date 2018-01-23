@@ -29,6 +29,7 @@ pub struct RlispFunc {
 pub enum FunctionBody {
     RustFn(Box<builtins::RlispBuiltinFunc>),
     LispFn(Vec<Object>),
+    SpecialForm(Box<builtins::RlispSpecialForm>),
 }
 
 impl RlispFunc {
@@ -36,6 +37,14 @@ impl RlispFunc {
         Self {
             arglist: None,
             body: FunctionBody::RustFn(fun),
+            gc_marking: 0,
+            name: None,
+        }
+    }
+    pub fn from_special_form(fun: Box<builtins::RlispSpecialForm>) -> Self {
+        Self {
+            arglist: None,
+            body: FunctionBody::SpecialForm(fun),
             gc_marking: 0,
             name: None,
         }
@@ -98,6 +107,7 @@ impl fmt::Debug for FunctionBody {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             FunctionBody::RustFn(_) => write!(f, "COMPILED BUILTIN"),
+            FunctionBody::SpecialForm(_) => write!(f, "SPECIAL FORM"),
             FunctionBody::LispFn(ref vector) => {
                 for el in vector {
                     write!(f, "{:?}", el)?;

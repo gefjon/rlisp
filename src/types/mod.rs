@@ -136,6 +136,14 @@ impl Object {
         }
         None
     }
+    pub fn into_usize_or_error(self) -> Result<usize> {
+        if let Object::Num(float) = self {
+            if (float > ::std::usize::MIN as _) && (float < ::std::usize::MAX as _) {
+                return Ok(float as usize);
+            }
+        }
+        Err(ErrorKind::WrongType(RlispType::Num, self.what_type()).into())
+    }
     pub unsafe fn into_usize_unchecked(self) -> usize {
         if let Object::Num(float) = self {
             float as usize
@@ -178,6 +186,13 @@ impl Object {
             Ok(unsafe { &mut (*(ptr as *mut Symbol)) })
         } else {
             Err(ErrorKind::WrongType(RlispType::Sym, self.what_type()).into())
+        }
+    }
+    pub fn into_symbol_mut_unchecked<'unbound>(self) -> &'unbound mut Symbol {
+        if let Object::Sym(ptr) = self {
+            unsafe { &mut (*(ptr as *mut Symbol)) }
+        } else {
+            panic!()
         }
     }
     pub fn into_cons<'unbound>(self) -> Option<&'unbound ConsCell> {

@@ -58,6 +58,10 @@ mod result {
                 description("the called function requires an arglist"),
                 display("the called function requires an arglist but did not have one"),
             }
+            WantedEvenArgCt {
+                description("the called function wants an even number of arguments"),
+                display("the called function wants an even number of arguments"),
+            }
         }
     }
 }
