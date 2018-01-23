@@ -237,7 +237,29 @@ pub fn make_special_forms() -> RlispSpecialForms {
             } else {
                 Ok(l.pop()?)
             }
-        }
+        },
+        if (predicate ifclause &rest elseclauses) -> {
+            let n_args = unsafe { l.pop()?.into_usize_unchecked() };
+            if n_args < 2 {
+                Err(ErrorKind::WrongArgsCount(n_args, 2, None).into())
+            } else {
+                let cond = l.pop()?;
+                let if_clause = l.pop()?;
+                let mut else_clauses = Vec::with_capacity(n_args - 2);
+                for _ in 0..(n_args - 2) {
+                    else_clauses.push(l.pop()?);
+                }
+                if bool::from(l.evaluate(cond)?) {
+                    Ok(l.evaluate(if_clause)?)
+                } else {
+                    let mut res = Object::nil();
+                    for clause in &else_clauses {
+                        res = l.evaluate(*clause)?;
+                    }
+                    Ok(res)
+                }
+            }
+        },
     }
 }
 
