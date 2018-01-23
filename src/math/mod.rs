@@ -80,6 +80,45 @@ pub mod math_builtins {
                     Object::nil()
                 }
             },
+            trunc (num) -> {
+                if let Some(num) = num.into_float() {
+                    Object::from(num.trunc())
+                } else {
+                    Object::nil()
+                }
+            },
+            floor (num) -> {
+                if let Some(num) = num.into_float() {
+                    Object::from(num.floor())
+                } else {
+                    Object::nil()
+                }
+            },
+            ceil (num) -> {
+                if let Some(num) = num.into_float() {
+                    Object::from(num.ceil())
+                } else {
+                    Object::nil()
+                }
+            },
+            round (num) -> {
+                if let Some(num) = num.into_float() {
+                    Object::from(num.round())
+                } else {
+                    Object::nil()
+                }
+            },
+            integerp (num) -> {
+                if let Some(num) = num.into_float() {
+                    if num.trunc() == num {
+                        Object::t()
+                    } else {
+                        Object::nil()
+                    }
+                } else {
+                    Object::nil()
+                }
+            },
         }
     }
 }
