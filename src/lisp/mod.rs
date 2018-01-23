@@ -66,8 +66,7 @@ pub mod allocate {
     }
 }
 
-const INITIAL_MACRO_CHARS: &[(u8, &str)] =
-    &[(b'\'', "quote"), (b'`', "backquote"), (b',', "comma")];
+const INITIAL_MACRO_CHARS: &[(u8, &str)] = &[(b'\'', "quote")];
 
 pub struct Lisp {
     pub symbols: HashMap<String, *const Symbol>,
@@ -94,7 +93,7 @@ impl Lisp {
             let fun = self.alloc(
                 RlispFunc::from_builtin(fun)
                     .with_name(name)
-                    .with_arglist(arglist)
+                    .with_arglist(arglist),
             );
             name.into_symbol_mut_unchecked().set(fun);
         }
@@ -114,7 +113,7 @@ impl Lisp {
             let fun = self.alloc(
                 RlispFunc::from_special_form(fun)
                     .with_name(name)
-                    .with_arglist(arglist)
+                    .with_arglist(arglist),
             );
             name.into_symbol_mut_unchecked().set(fun);
         }

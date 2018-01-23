@@ -14,10 +14,13 @@ use gc;
 
 pub trait Evaluator
     : lisp::Symbols + lisp::stack_storage::Stack + gc::GarbageCollector + list::ListOps
-{
+    {
     fn evaluate(&mut self, input: Object) -> Result<Object> {
         debug!("evaluating {}", input);
-        debug!("evaluate(): pushing {} to the stack so it doesn't get gc'd", input);
+        debug!(
+            "evaluate(): pushing {} to the stack so it doesn't get gc'd",
+            input
+        );
         self.push(input); // push `input` to the stack so that the gc doesn't get rid of it
         let res = match input {
             Object::Sym(s) => self.eval_symbol(s),
@@ -33,6 +36,10 @@ pub trait Evaluator
             debug!("{} evaluated to {}", input, obj);
         }
         let _popped = self.pop()?;
+        debug!(
+            "evaluate(): popped {} from the stack as we have finished evaluating it",
+            _popped
+        );
         debug_assert!(_popped == input);
         res
     }
@@ -226,12 +233,16 @@ pub trait Evaluator
                     debug!("trying to get arg for symbol {:?}", sym);
                     match arg_type {
                         ArgType::Mandatory => {
-                            sym.push(self.pop()?);
+                            let arg = self.pop()?;
+                            debug!("get_args_for_lisp_func(): popped the arg {}", arg);
+                            sym.push(arg);
                             consumed += 1;
                         }
                         ArgType::Optional => {
                             if consumed < n_args {
-                                sym.push(self.pop()?);
+                                let arg = self.pop()?;
+                                debug!("get_args_for_lisp_func(): popped the arg {}", arg);
+                                sym.push(arg);
                                 consumed += 1;
                             } else {
                                 sym.push(Object::nil());
@@ -241,7 +252,9 @@ pub trait Evaluator
                             let mut head = Object::nil();
                             while consumed < n_args {
                                 consumed += 1;
-                                let conscell = ConsCell::new(self.pop()?, head);
+                                let arg = self.pop()?;
+                                debug!("get_args_for_lisp_func(): popped the arg {}", arg);
+                                let conscell = ConsCell::new(arg, head);
                                 head = self.alloc(conscell);
                             }
                             sym.push(if head != Object::nil() {

@@ -110,7 +110,6 @@ macro_rules! builtin_function {
     };
 }
 
-
 macro_rules! special_form {
     ($l:ident $name:tt ($($arg:tt)*) -> $blk:block) => {
         {
@@ -161,7 +160,6 @@ pub type Name = String;
 pub type RlispBuiltinTuple = (Name, Arglist, Box<RlispBuiltinFunc>);
 pub type RlispSpecialForms = Vec<(Name, Arglist, Box<RlispSpecialForm>)>;
 pub type RlispBuiltins = Vec<RlispBuiltinTuple>;
-        
 
 pub fn make_special_forms() -> RlispSpecialForms {
     use evaluator::Evaluator;
@@ -230,7 +228,12 @@ pub fn make_special_forms() -> RlispSpecialForms {
         quote (x) -> {
             let n_args = l.pop()?;
             if !::math::num_equals(n_args, Object::from(1.0)) {
-                Err(ErrorKind::WrongArgsCount(unsafe { n_args.into_usize_unchecked() }, 1, Some(1)).into())
+                Err(
+                    ErrorKind::WrongArgsCount(
+                        unsafe { n_args.into_usize_unchecked() },
+                        1, Some(1)
+                    ).into()
+                )
             } else {
                 Ok(l.pop()?)
             }
