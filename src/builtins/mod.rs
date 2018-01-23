@@ -176,7 +176,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
                 debug!("arg {} was {}", _i, arg);
                 clauses.push(arg);
             }
-            for clause in clauses.iter() {
+            for clause in &clauses {
                 let &ConsCell { car, cdr, .. } = clause.into_cons_or_error()?;
                 if bool::from(l.evaluate(car)?) {
                     let &ConsCell { car: cdrcar, .. } = cdr.into_cons_or_error()?;
@@ -194,6 +194,8 @@ pub fn make_special_forms() -> RlispSpecialForms {
                 body.push(arg);
             }
             let mut symbols_bound = Vec::new();
+
+            #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
             for binding_pair in bindings.into_cons_or_error()?.into_iter() {
                 let &ConsCell { car: symbol, cdr, .. } = binding_pair.into_cons_or_error()?;
                 let &ConsCell { car: value, .. } = cdr.into_cons_or_error()?;
@@ -201,10 +203,10 @@ pub fn make_special_forms() -> RlispSpecialForms {
                 symbols_bound.push(symbol);
             }
             let mut res = Object::nil();
-            for body_clause in body.iter() {
+            for body_clause in &body {
                 res = l.evaluate(*body_clause)?;
             }
-            for symbol in symbols_bound.iter() {
+            for symbol in &symbols_bound {
                 symbol.into_symbol_mut_or_error()?.pop();
             }
             Ok(res)
@@ -216,7 +218,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
             }
             let mut n_args = n_args.into_usize_or_error()?;
             let mut res = Object::nil();
-            while (n_args > 1) {
+            while n_args > 1 {
                 n_args -= 2;
                 let sym = l.pop()?.into_symbol_mut_or_error()?;
                 let value = l.pop()?;

@@ -2,14 +2,13 @@ use types::*;
 
 pub mod math_builtins {
     use builtins::*;
-    use list::ListOps;
-    use list;
     use super::*;
     pub fn make_builtins() -> RlispBuiltins {
         builtin_functions!{
             l = lisp;
             = (first &rest nums) -> {
                 if let Some(cons) = nums.into_cons() {
+                    #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
                     for el in cons.into_iter() {
                         if !num_equals(first, el) {
                             return Ok(Object::from(false));
@@ -21,6 +20,7 @@ pub mod math_builtins {
             * (&rest nums) -> {
                 let mut result = 1.0;
                 if let Some(cons) = nums.into_cons() {
+                    #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
                     for el in cons.into_iter() {
                         result *= el.into_float_or_error()?;
                     }
@@ -30,6 +30,7 @@ pub mod math_builtins {
             + (&rest nums) -> {
                 let mut result = 0.0;
                 if let Some(cons) = nums.into_cons() {
+                    #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
                     for el in cons.into_iter() {
                         result += el.into_float_or_error()?;
                     }
@@ -39,6 +40,7 @@ pub mod math_builtins {
             - (first &rest nums) -> {
                 let mut result = first.into_float_or_error()?;
                 if let Some(cons) = nums.into_cons() {
+                    #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
                     for el in cons.into_iter() {
                         result -= el.into_float_or_error()?;
                     }
@@ -48,6 +50,7 @@ pub mod math_builtins {
             / (first &rest nums) -> {
                 let mut result = first.into_float_or_error()?;
                 if let Some(cons) = nums.into_cons() {
+                    #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
                     for el in cons.into_iter() {
                         result /= el.into_float_or_error()?;
                     }

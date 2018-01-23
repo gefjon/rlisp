@@ -96,8 +96,8 @@ impl fmt::Debug for RlispFunc {
         write!(
             f,
             "[ function {} ({}) -> {:?} ]",
-            self.name.unwrap_or(Object::nil()),
-            self.arglist.unwrap_or(Object::nil()),
+            self.name.unwrap_or_else(Object::nil),
+            self.arglist.unwrap_or_else(Object::nil),
             self.body
         )
     }
