@@ -33,6 +33,14 @@ pub enum FunctionBody {
 }
 
 impl RlispFunc {
+    pub fn from_body(body: Vec<Object>) -> Self {
+        Self {
+            arglist: None,
+            body: FunctionBody::LispFn(body),
+            gc_marking: 0,
+            name: None,
+        }
+    }
     pub fn from_builtin(fun: Box<builtins::RlispBuiltinFunc>) -> Self {
         Self {
             arglist: None,

@@ -16,7 +16,12 @@ pub trait Rep<V: Iterator<Item = u8>>
         <Self as ::reader::Reader<V>>::read(self, input)
     }
     fn eval(&mut self, read: Object) -> Result<Object> {
-        <Self as ::evaluator::Evaluator>::evaluate(self, read)
+        let res = <Self as ::evaluator::Evaluator>::evaluate(self, read);
+        if res.is_err() {
+            info!("evaluation errored; cleaning stack");
+            <Self as ::lisp::stack_storage::Stack>::clean_stack(self);
+        }
+        res
     }
     fn print(&self, evaled: Object) -> Result<String> {
         Ok(format!("{}\n", evaled))

@@ -262,6 +262,38 @@ pub fn make_special_forms() -> RlispSpecialForms {
                 }
             }
         },
+        defun (name arglist &rest body) -> {
+            let n_args = unsafe { l.pop()?.into_usize_unchecked() };
+            if n_args < 3 {
+                Err(ErrorKind::WrongArgsCount(n_args, 3, None).into())
+            } else {
+                let name = l.pop()?;
+                let arglist = l.pop()?;
+                let mut body = Vec::with_capacity(n_args - 2);
+                for _ in 0..(n_args - 2) {
+                    body.push(l.pop()?);
+                }
+                let fun = l.alloc(
+                    RlispFunc::from_body(body)
+                        .with_name(name)
+                        .with_arglist(arglist)
+                );
+                name.into_symbol_mut_or_error()?.reset(fun);
+                Ok(fun)
+            }
+        },
+        defvar (name value) -> {
+            let n_args = unsafe { l.pop()?.into_usize_unchecked() };
+            if n_args != 2 {
+                Err(ErrorKind::WrongArgsCount(n_args, 2, Some(2)).into())
+            } else {
+                let name = l.pop()?;
+                let val = l.pop()?;
+                let val = l.evaluate(val)?;
+                name.into_symbol_mut_or_error()?.reset(val);
+                Ok(val)
+            }
+        },
     }
 }
 

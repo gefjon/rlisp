@@ -28,10 +28,6 @@ pub trait Evaluator
             Object::Bool(_) | Object::String(_) | Object::Num(_) | Object::Function(_) => Ok(input), // the majority of types evaluate to themselves
         };
         self.gc_maybe_pass();
-        if res.is_err() {
-            info!("evaluation errored; cleaning stack");
-            self.clean_stack();
-        }
         if let Ok(obj) = res {
             debug!("{} evaluated to {}", input, obj);
         }
