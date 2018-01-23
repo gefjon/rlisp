@@ -38,17 +38,3 @@ pub trait Rep<V: Iterator<Item = u8>>
 }
 
 impl<'read> Rep<::reader::StdioIter<'read>> for Lisp {}
-
-#[cfg(test)]
-mod tests {
-    use result::*;
-    use lisp::Lisp;
-    use super::Rep;
-    #[test]
-    fn simple_print() {
-        let input = String::from("'(foo bar)");
-        let mut lisp = Lisp::new();
-        let output = lisp.rep(input.clone()).unwrap();
-        assert_eq!(input, output);
-    }
-}
