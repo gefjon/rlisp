@@ -9,6 +9,7 @@ use list;
 use result::*;
 use std::iter::{Iterator, Map};
 use std::io;
+use std::str::FromStr;
 use types::*;
 
 // reading numbers, symbols, and strings are currently stored in
@@ -17,9 +18,6 @@ use types::*;
 // circular trait dependency that makes rustc unhappy. As a possible
 // change for the future, the symbol, number and string readers could
 // be moved into this master trait if I deem that more convenient.
-mod numbers;
-mod symbols;
-use self::symbols::ReadSymbol;
 mod strings;
 use self::strings::ReadString;
 
@@ -31,9 +29,7 @@ pub type StdioIter<'read> =
     Map<io::Bytes<io::StdinLock<'read>>, fn(::std::result::Result<u8, io::Error>) -> u8>;
 
 pub trait Reader<V>
-    : numbers::ReadNumber<V>
-    + strings::ReadString<V>
-    + symbols::ReadSymbol<V>
+    : strings::ReadString<V>
     + lisp::Symbols
     + lisp::MacroChars
     + lisp::allocate::AllocObject
@@ -57,10 +53,6 @@ where
         // and `comma`. `read_from_char` checks those, and then calls
         // this function if it does not find a match.
         match byte {
-            peek @ b'0'...b'9' => {
-                let (obj, opt_byte) = self.read_number(peek, iter)?;
-                Ok((Some(obj), opt_byte))
-            }
             b'(' => Ok((Some(self.read_list(iter)?), None)),
             open @ b'"' => Ok((
                 Some(<Self as ReadString<V>>::read_string(self, open, iter)?),
@@ -68,7 +60,7 @@ where
             )),
             _ if WHITESPACE.contains(&byte) => self.read_form(iter),
             peek => {
-                let (obj, opt_byte) = <Self as ReadSymbol<V>>::read_symbol(self, peek, iter)?;
+                let (obj, opt_byte) = self.read_symbol_or_number(peek, iter)?;
                 Ok((Some(obj), opt_byte))
             }
         }
@@ -124,6 +116,34 @@ where
             }
         }
         Err(ErrorKind::UnclosedList.into())
+    }
+
+    fn read_symbol_or_number(&mut self, peek: u8, iter: &mut V) -> Result<(Object, Option<u8>)> {
+        let mut sym = vec![peek];
+        for byte in iter {
+            match byte {
+                b')' => {
+                    return self.finish_symbol_or_number(sym, Some(byte));
+                }
+                _ if WHITESPACE.contains(&byte) => {
+                    return self.finish_symbol_or_number(sym, Some(byte));
+                }
+                _ => sym.push(byte),
+            }
+        }
+        self.finish_symbol_or_number(sym, None)
+    }
+    fn finish_symbol_or_number(
+        &mut self,
+        sym: Vec<u8>,
+        end_char: Option<u8>,
+    ) -> Result<(Object, Option<u8>)> {
+        let sym_str = String::from_utf8(sym)?;
+        if let Ok(float) = f64::from_str(&sym_str) {
+            Ok((Object::from(float), end_char))
+        } else {
+            Ok((self.intern(sym_str), end_char))
+        }
     }
 }
 

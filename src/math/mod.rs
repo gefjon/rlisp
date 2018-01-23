@@ -63,6 +63,23 @@ pub mod math_builtins {
             <= (lesser greater) -> {
                 Object::from(num_le(lesser, greater))
             },
+            rem (num modulus) -> {
+                if let (Some(num), Some(modulus)) = (num.into_float(), modulus.into_float()) {
+                    Object::from(num % modulus)
+                } else {
+                    Object::nil()
+                }
+            },
+            mod (num modulus) -> {
+                if let (Some(mut num), Some(modulus)) = (num.into_float(), modulus.into_float()) {
+                    while num < 0.0 {
+                        num += modulus;
+                    }
+                    Object::from(num % modulus)
+                } else {
+                    Object::nil()
+                }
+            },
         }
     }
 }
@@ -78,7 +95,7 @@ pub fn num_equals(first: Object, second: Object) -> bool {
 #[cfg_attr(feature = "cargo-clippy", allow(float_cmp))]
 pub fn oddp(num: Object) -> bool {
     if let Some(num) = num.into_float() {
-        (num % 2.0) == 1.0
+        (num % 2.0) != 0.0
     } else {
         false
     }
