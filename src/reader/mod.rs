@@ -7,8 +7,7 @@ Iterator<u8>` and parses an object from it.xs
 use lisp;
 use list;
 use result::*;
-use std::iter::{Iterator, Map, Peekable};
-use std::io;
+use std::iter::{Iterator, Peekable};
 use std::str::FromStr;
 use types::*;
 
@@ -23,27 +22,23 @@ use self::strings::ReadString;
 
 const WHITESPACE: &[u8] = &[b' ', b'\t', b'\n'];
 
-// This is the type that is passed (a &mut StdioIter) by the Stdio
-// REPL. It's a hell of a type, which is why this alias exists.
-pub type StdioIter<'read> =
-    Map<io::Bytes<io::StdinLock<'read>>, fn(::std::result::Result<u8, io::Error>) -> u8>;
+// This trait exists because writing all of these as required traits on Reader
+// makes that line so long that `cargo fmt` doesn't know what to do and errors
+pub trait ReaderDepends
+    : lisp::Symbols + lisp::MacroChars + lisp::allocate::AllocObject + list::ListOps
+    {
+}
 
-pub trait Reader<V>
-    : strings::ReadString<V>
-    + lisp::Symbols
-    + lisp::MacroChars
-    + lisp::allocate::AllocObject
-    + list::ListOps
-where
-    V: Iterator<Item = u8>,
-{
-    fn read(&mut self, input: &mut Peekable<V>) -> Result<Option<Object>> {
+impl ReaderDepends for lisp::Lisp {}
+
+pub trait Reader: strings::ReadString + ReaderDepends {
+    fn read<V: Iterator<Item = u8>>(&mut self, input: &mut Peekable<V>) -> Result<Option<Object>> {
         debug!("called read()");
         // This is the function called by `Rep`.
         self.read_form(input)
     }
 
-    fn peek(input: &mut Peekable<V>) -> Option<u8> {
+    fn peek<V: Iterator<Item = u8>>(input: &mut Peekable<V>) -> Option<u8> {
         // this method is an ugly hack to get around the borrow checker.
         // if let Some(byte) = input.peek()
         // takes out an immutable borrow on `iter` for the lifetime of `byte`
@@ -57,7 +52,7 @@ where
         }
     }
 
-    fn read_after_checking_macro_chars(
+    fn read_after_checking_macro_chars<V: Iterator<Item = u8>>(
         &mut self,
         iter: &mut Peekable<V>,
     ) -> Result<Option<Object>> {
@@ -71,7 +66,7 @@ where
                     let _ = iter.next();
                     Ok(Some(self.read_list(iter)?))
                 }
-                b'"' => Ok(Some(<Self as ReadString<V>>::read_string(self, iter)?)),
+                b'"' => Ok(Some(<Self as ReadString>::read_string(self, iter)?)),
                 _ if WHITESPACE.contains(&peek) => {
                     let _ = iter.next();
                     self.read_form(iter)
@@ -83,7 +78,10 @@ where
         }
     }
 
-    fn read_form(&mut self, iter: &mut Peekable<V>) -> Result<Option<Object>> {
+    fn read_form<V: Iterator<Item = u8>>(
+        &mut self,
+        iter: &mut Peekable<V>,
+    ) -> Result<Option<Object>> {
         if let Some(peek) = Self::peek(iter) {
             if let Some(symbol) = self.check_macro_char(peek) {
                 let _ = iter.next();
@@ -101,7 +99,7 @@ where
     }
 
     #[cfg_attr(feature = "cargo-clippy", allow(while_let_on_iterator))]
-    fn read_list(&mut self, iter: &mut Peekable<V>) -> Result<Object> {
+    fn read_list<V: Iterator<Item = u8>>(&mut self, iter: &mut Peekable<V>) -> Result<Object> {
         let mut elems = Vec::new();
         while let Some(peek) = Self::peek(iter) {
             match peek {
@@ -121,7 +119,10 @@ where
         Err(ErrorKind::UnclosedList.into())
     }
 
-    fn read_symbol_or_number(&mut self, iter: &mut Peekable<V>) -> Result<Option<Object>> {
+    fn read_symbol_or_number<V: Iterator<Item = u8>>(
+        &mut self,
+        iter: &mut Peekable<V>,
+    ) -> Result<Option<Object>> {
         if let Some(peek) = Self::peek(iter) {
             let _ = iter.next();
             let mut sym = vec![peek];
@@ -153,4 +154,4 @@ where
     }
 }
 
-impl<'read> Reader<StdioIter<'read>> for ::lisp::Lisp {}
+impl Reader for ::lisp::Lisp {}

@@ -4,8 +4,8 @@ use types::*;
 use lisp;
 
 #[cfg_attr(feature = "cargo-clippy", allow(while_let_on_iterator))]
-pub trait ReadString<V: Iterator<Item = u8>>: lisp::allocate::AllocObject {
-    fn read_string(&mut self, iter: &mut Peekable<V>) -> Result<Object> {
+pub trait ReadString: lisp::allocate::AllocObject {
+    fn read_string<V: Iterator<Item = u8>>(&mut self, iter: &mut Peekable<V>) -> Result<Object> {
         if let Some(open) = iter.next() {
             let mut string = Vec::new();
             while let Some(byte) = iter.next() {
@@ -42,4 +42,4 @@ pub trait ReadString<V: Iterator<Item = u8>>: lisp::allocate::AllocObject {
     }
 }
 
-impl<'read> ReadString<super::StdioIter<'read>> for lisp::Lisp {}
+impl ReadString for lisp::Lisp {}
