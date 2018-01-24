@@ -21,6 +21,8 @@ mod strings;
 use self::strings::ReadString;
 
 const WHITESPACE: &[u8] = &[b' ', b'\t', b'\n'];
+const COMMENT_DESIGNATORS: &[u8] = &[b';'];
+const COMMENT_ENDS: &[u8] = &[b'\n'];
 
 // This trait exists because writing all of these as required traits on Reader
 // makes that line so long that `cargo fmt` doesn't know what to do and errors
@@ -38,7 +40,62 @@ pub trait Reader: strings::ReadString + ReaderDepends {
         self.read_form(input)
     }
 
+    fn next<V: Iterator<Item = u8>>(input: &mut Peekable<V>) -> Option<u8> {
+        // this method skips past comments, which it does by checking if each
+        // new peek'd character is in `COMMENT_DESIGNATORS`, and then looping
+        // until it hits a member of `COMMENT_ENDS`
+        match input.next() {
+            Some(next) if COMMENT_DESIGNATORS.contains(&next) => loop {
+                match input.next() {
+                    None => {
+                        return None;
+                    }
+                    Some(next) if COMMENT_ENDS.contains(&next) => {
+                        return input.next();
+                    }
+                    Some(_) => {
+                        continue;
+                    }
+                }
+            },
+            other => {
+                return other;
+            }
+        }
+    }
+
     fn peek<V: Iterator<Item = u8>>(input: &mut Peekable<V>) -> Option<u8> {
+        // this method skips past comments, which it does by checking if each
+        // new peek'd character is in `COMMENT_DESIGNATORS`, and then looping
+        // until it hits a member of `COMMENT_ENDS`
+
+        match Self::peek_without_check_comment(input) {
+            Some(peek) if COMMENT_DESIGNATORS.contains(&peek) => {
+                let _ = input.next();
+                loop {
+                    match input.next() {
+                        None => {
+                            return None;
+                        }
+                        Some(next) if COMMENT_ENDS.contains(&next) => {
+                            return Self::peek(input);
+                        }
+                        Some(_) => {
+                            continue;
+                        }
+                    }
+                }
+            }
+            other => {
+                return other;
+            }
+        }
+    }
+
+    fn peek_without_check_comment<V>(input: &mut Peekable<V>) -> Option<u8>
+    where
+        V: Iterator<Item = u8>,
+    {
         // this method is an ugly hack to get around the borrow checker.
         // if let Some(byte) = input.peek()
         // takes out an immutable borrow on `iter` for the lifetime of `byte`
@@ -63,12 +120,12 @@ pub trait Reader: strings::ReadString + ReaderDepends {
         if let Some(peek) = Self::peek(iter) {
             match peek {
                 b'(' => {
-                    let _ = iter.next();
+                    let _ = Self::next(iter);
                     Ok(Some(self.read_list(iter)?))
                 }
                 b'"' => Ok(Some(<Self as ReadString>::read_string(self, iter)?)),
                 _ if WHITESPACE.contains(&peek) => {
-                    let _ = iter.next();
+                    let _ = Self::next(iter);
                     self.read_form(iter)
                 }
                 _ => self.read_symbol_or_number(iter),
@@ -84,7 +141,7 @@ pub trait Reader: strings::ReadString + ReaderDepends {
     ) -> Result<Option<Object>> {
         if let Some(peek) = Self::peek(iter) {
             if let Some(symbol) = self.check_macro_char(peek) {
-                let _ = iter.next();
+                let _ = Self::next(iter);
                 if let Some(obj) = self.read_form(iter)? {
                     Ok(Some(self.list_from_vec(vec![symbol, obj])))
                 } else {
@@ -104,7 +161,7 @@ pub trait Reader: strings::ReadString + ReaderDepends {
         while let Some(peek) = Self::peek(iter) {
             match peek {
                 b')' => {
-                    let _ = iter.next();
+                    let _ = Self::next(iter);
                     return Ok(self.list_from_vec(elems));
                 }
                 _ => {
@@ -124,7 +181,7 @@ pub trait Reader: strings::ReadString + ReaderDepends {
         iter: &mut Peekable<V>,
     ) -> Result<Option<Object>> {
         if let Some(peek) = Self::peek(iter) {
-            let _ = iter.next();
+            let _ = Self::next(iter);
             let mut sym = vec![peek];
             while let Some(peek) = Self::peek(iter) {
                 match peek {
@@ -135,7 +192,7 @@ pub trait Reader: strings::ReadString + ReaderDepends {
                         return Ok(Some(self.finish_symbol_or_number(sym)?));
                     }
                     _ => {
-                        sym.push(iter.next().unwrap());
+                        sym.push(Self::next(iter).unwrap());
                     }
                 }
             }
