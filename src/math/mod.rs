@@ -110,7 +110,7 @@ pub mod math_builtins {
             },
             integerp (num) -> {
                 if let Some(num) = num.into_float() {
-                    if num.trunc() == num {
+                    if integerp(num) {
                         Object::t()
                     } else {
                         Object::nil()
@@ -154,4 +154,9 @@ pub fn num_le(first: Object, second: Object) -> bool {
     } else {
         false
     }
+}
+
+#[cfg_attr(feature = "cargo-clippy", allow(float_cmp))]
+fn integerp(num: f64) -> bool {
+    num.trunc() == num
 }
