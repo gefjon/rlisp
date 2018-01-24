@@ -288,7 +288,7 @@ impl fmt::Display for Object {
             Object::Num(n) => write!(f, "{}", n),
             Object::Sym(s) => unsafe { write!(f, "{}", *s) },
             Object::Cons(c) => unsafe { write!(f, "{}", *c) },
-            Object::String(s) => unsafe { write!(f, "\"{}\"", *s) },
+            Object::String(s) => unsafe { write!(f, "{}", *s) },
             Object::Function(func) => unsafe { write!(f, "{}", *func) },
         }
     }
@@ -299,8 +299,8 @@ impl fmt::Debug for Object {
         match *self {
             Object::Bool(false) => write!(f, "nil"),
             Object::Bool(true) => write!(f, "t"),
-            Object::Num(n) => write!(f, "{:?}", n),
-            Object::Sym(s) => unsafe { write!(f, "{:?}", *s) },
+            Object::Num(n) => write!(f, "{}", n),
+            Object::Sym(s) => unsafe { write!(f, "{}", *s) },
             Object::Cons(c) => unsafe { write!(f, "{:?}", *c) },
             Object::String(s) => unsafe { write!(f, "{:?}", *s) },
             Object::Function(func) => unsafe { write!(f, "{:?}", *func) },

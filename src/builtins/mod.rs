@@ -305,5 +305,18 @@ pub fn make_builtins() -> RlispBuiltins {
         cons (car cdr) -> { l.alloc(ConsCell::new(car, cdr)) },
         list (&rest items) -> { items },
         debug (obj) -> { println!("{:?}", obj); obj },
+        print (&rest objects) -> {
+            if let Some(cons) = objects.into_cons() {
+                let mut count: isize = 0;
+                for obj in cons {
+                    print!("{}", obj);
+                    count += 1;
+                }
+                print!("\n");
+                Object::from(count)
+            } else {
+                Object::nil()
+            }
+        }
     }
 }
