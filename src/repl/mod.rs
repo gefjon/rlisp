@@ -1,6 +1,7 @@
 use result::*;
 use lisp::Lisp;
 use types::*;
+use std::iter::Peekable;
 
 // stdio contains the REPL which reads from Stdin and prints to Stdout
 pub mod stdio;
@@ -12,7 +13,7 @@ pub mod stdio;
 // or an Err
 pub trait Rep<V: Iterator<Item = u8>>
     : ::reader::Reader<V> + ::evaluator::Evaluator {
-    fn read(&mut self, input: &mut V) -> Result<Option<Object>> {
+    fn read(&mut self, input: &mut Peekable<V>) -> Result<Option<Object>> {
         <Self as ::reader::Reader<V>>::read(self, input)
     }
     fn eval(&mut self, read: Object) -> Result<Object> {
@@ -26,7 +27,7 @@ pub trait Rep<V: Iterator<Item = u8>>
     fn print(&self, evaled: Object) -> Result<String> {
         Ok(format!("{}\n", evaled))
     }
-    fn rep(&mut self, input: &mut V) -> Result<String> {
+    fn rep(&mut self, input: &mut Peekable<V>) -> Result<String> {
         let read = <Self as Rep<V>>::read(self, input)?;
         if let Some(obj) = read {
             let evaled = self.eval(obj)?;

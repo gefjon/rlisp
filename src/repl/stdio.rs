@@ -44,7 +44,7 @@ impl StdIoRepl {
         let lock = stdin.lock();
         let unwrap_ptr: fn(::std::result::Result<u8, _>) -> u8 =
             ::std::result::Result::<u8, _>::unwrap;
-        let mut iter = lock.bytes().map(unwrap_ptr);
+        let mut iter = lock.bytes().map(unwrap_ptr).peekable();
 
         let stdout = io::stdout();
         let mut stdoutlock = stdout.lock();
