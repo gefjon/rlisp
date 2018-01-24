@@ -82,28 +82,36 @@ pub mod math_builtins {
             },
             trunc (num) -> {
                 if let Some(num) = num.into_float() {
-                    Object::from(num.trunc())
+                    let trunced = num.trunc();
+                    debug_assert!(integerp(trunced));
+                    Object::from(trunced)
                 } else {
                     Object::nil()
                 }
             },
             floor (num) -> {
                 if let Some(num) = num.into_float() {
-                    Object::from(num.floor())
+                    let floored = num.floor();
+                    debug_assert!(integerp(floored));
+                    Object::from(floored)
                 } else {
                     Object::nil()
                 }
             },
             ceil (num) -> {
                 if let Some(num) = num.into_float() {
-                    Object::from(num.ceil())
+                    let ceiled = num.ceil();
+                    debug_assert!(integerp(ceiled));
+                    Object::from(ceiled)
                 } else {
                     Object::nil()
                 }
             },
             round (num) -> {
                 if let Some(num) = num.into_float() {
-                    Object::from(num.round())
+                    let rounded = num.round();
+                    debug_assert!(integerp(rounded));
+                    Object::from(rounded)
                 } else {
                     Object::nil()
                 }
