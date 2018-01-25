@@ -58,9 +58,7 @@ pub trait Reader: strings::ReadString + ReaderDepends {
                     }
                 }
             },
-            other => {
-                return other;
-            }
+            other => other,
         }
     }
 
@@ -86,9 +84,7 @@ pub trait Reader: strings::ReadString + ReaderDepends {
                     }
                 }
             }
-            other => {
-                return other;
-            }
+            other => other,
         }
     }
 

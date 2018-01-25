@@ -312,7 +312,7 @@ pub fn make_builtins() -> RlispBuiltins {
                     print!("{}", obj);
                     count += 1;
                 }
-                print!("\n");
+                println!();
                 Object::from(count)
             } else {
                 Object::nil()
