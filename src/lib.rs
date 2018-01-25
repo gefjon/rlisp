@@ -62,6 +62,10 @@ mod result {
                 description("the called function wants an even number of arguments"),
                 display("the called function wants an even number of arguments"),
             }
+            OutOfArgs {
+                description("ran out of args!"),
+                display("ran out of args!"),
+            }
         }
     }
 }

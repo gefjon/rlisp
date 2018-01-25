@@ -6,7 +6,7 @@ pub mod math_builtins {
     pub fn make_builtins() -> RlispBuiltins {
         builtin_functions!{
             l = lisp;
-            = (first &rest nums) -> {
+            "=" (first &rest nums) -> {
                 if let Some(cons) = nums.into_cons() {
                     #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
                     for el in cons.into_iter() {
@@ -17,7 +17,7 @@ pub mod math_builtins {
                 }
                 Object::from(true)
             },
-            * (&rest nums) -> {
+            "*" (&rest nums) -> {
                 let mut result = 1.0;
                 if let Some(cons) = nums.into_cons() {
                     #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
@@ -27,7 +27,7 @@ pub mod math_builtins {
                 }
                 Object::from(result)
             },
-            + (&rest nums) -> {
+            "+" (&rest nums) -> {
                 let mut result = 0.0;
                 if let Some(cons) = nums.into_cons() {
                     #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
@@ -37,7 +37,7 @@ pub mod math_builtins {
                 }
                 Object::from(result)
             },
-            - (first &rest nums) -> {
+            "-" (first &rest nums) -> {
                 let mut result = first.into_float_or_error()?;
                 if let Some(cons) = nums.into_cons() {
                     #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
@@ -47,7 +47,7 @@ pub mod math_builtins {
                 }
                 Object::from(result)
             },
-            / (first &rest nums) -> {
+            "/" (first &rest nums) -> {
                 let mut result = first.into_float_or_error()?;
                 if let Some(cons) = nums.into_cons() {
                     #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
@@ -57,20 +57,20 @@ pub mod math_builtins {
                 }
                 Object::from(result)
             },
-            < (lesser greater) -> {
+            "<" (lesser greater) -> {
                 Object::from(num_lt(lesser, greater))
             },
-            <= (lesser greater) -> {
+            "<=" (lesser greater) -> {
                 Object::from(num_le(lesser, greater))
             },
-            rem (num modulus) -> {
+            "rem" (num modulus) -> {
                 if let (Some(num), Some(modulus)) = (num.into_float(), modulus.into_float()) {
                     Object::from(num % modulus)
                 } else {
                     Object::nil()
                 }
             },
-            mod (num modulus) -> {
+            "mod" (num modulus) -> {
                 if let (Some(mut num), Some(modulus)) = (num.into_float(), modulus.into_float()) {
                     while num < 0.0 {
                         num += modulus;
@@ -80,7 +80,7 @@ pub mod math_builtins {
                     Object::nil()
                 }
             },
-            trunc (num) -> {
+            "trunc" (num) -> {
                 if let Some(num) = num.into_float() {
                     let trunced = num.trunc();
                     debug_assert!(integerp(trunced));
@@ -89,7 +89,7 @@ pub mod math_builtins {
                     Object::nil()
                 }
             },
-            floor (num) -> {
+            "floor" (num) -> {
                 if let Some(num) = num.into_float() {
                     let floored = num.floor();
                     debug_assert!(integerp(floored));
@@ -98,7 +98,7 @@ pub mod math_builtins {
                     Object::nil()
                 }
             },
-            ceil (num) -> {
+            "ceil" (num) -> {
                 if let Some(num) = num.into_float() {
                     let ceiled = num.ceil();
                     debug_assert!(integerp(ceiled));
@@ -107,7 +107,7 @@ pub mod math_builtins {
                     Object::nil()
                 }
             },
-            round (num) -> {
+            "round" (num) -> {
                 if let Some(num) = num.into_float() {
                     let rounded = num.round();
                     debug_assert!(integerp(rounded));
@@ -116,7 +116,7 @@ pub mod math_builtins {
                     Object::nil()
                 }
             },
-            integerp (num) -> {
+            "integerp" (num) -> {
                 if let Some(num) = num.into_float() {
                     if integerp(num) {
                         Object::t()

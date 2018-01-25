@@ -42,41 +42,31 @@ macro_rules! arglist {
     };
 }
 
-macro_rules! get_args {
-    ($l:ident ; $_n_args:ident ; $($arg:ident)*) => {
-        $(
-            let $arg = <$crate::lisp::Lisp as $crate::lisp::stack_storage::Stack>
+macro_rules! get_arg {
+    ($l:ident ; $n_args:ident ; $consumed_args:ident ; $arg:ident) => {
+        debug_assert!($consumed_args < $n_args);
+        let $arg = <$crate::lisp::Lisp as $crate::lisp::stack_storage::Stack>
                 ::pop($l)?;
-        )*;
+        $consumed_args += 1;
+
+        debug!("popped {} as an argument; have now consumed {} args", $arg, $consumed_args);
     };
 
-    ($l:ident ; $n_args:ident ; $($arg:ident)* &optional $($oarg:ident)+) => {
-        let mut consumed = 0;
-        $(
-            let $arg = <$crate::lisp::Lisp as $crate::lisp::stack_storage::Stack>
-                ::pop($l)?;
-            consumed += 1;
-        )*;
-        $(
-            let $oarg = if consumed < $n_args {
-                consumed += 1;
-                <$crate::lisp::stack_storage::Stack>::pop($l)?
-            } else {
-                $crate::types::Object::nil()
-            };
-        )+;
+    (OPT $l:ident ; $n_args:ident ; $consumed_args:ident ; $arg:ident) => {
+        let $arg = if $consumed_args < $n_args {
+            $consumed_args += 1;
+            <$crate::lisp::stack_storage::Stack>::pop($l)?
+        } else {
+            $crate::types::Object::nil()
+        };
+        debug!("popped {} as an argument; have now consumed {} args", $arg, $consumed_args);
     };
 
-    ($l:ident ; $n_args:ident ; $($arg:ident)* &rest $rarg:ident) => {
-        let mut consumed = 0;
-        $(
-            let $arg = <$crate::lisp::Lisp as $crate::lisp::stack_storage::Stack>::pop($l)?;
-            consumed += 1;
-        )*;
-        let $rarg = {
+    (REST $l:ident ; $n_args:ident ; $consumed_args:ident ; $arg:ident) => {
+        let $arg = {
             let mut head = $crate::types::Object::nil();
-            while consumed < $n_args {
-                consumed += 1;
+            while $consumed_args < $n_args {
+                $consumed_args += 1;
                 let conscell = $crate::types::ConsCell::new(
                     <$crate::lisp::Lisp as $crate::lisp::stack_storage::Stack>
                         ::pop($l)?, head);
@@ -90,15 +80,43 @@ macro_rules! get_args {
                 head
             }
         };
+        debug!("popped {} as an argument; have now consumed {} args", $arg, $consumed_args);
+    };
+}
+
+macro_rules! get_args {
+    ($l:ident ; $n_args:ident ; $($arg:ident)*) => {
+        let mut _consumed_args = 0;
+        $(
+            get_arg!($l ; $n_args ; _consumed_args ; $arg);
+        )*;
+    };
+
+    ($l:ident ; $n_args:ident ; $($arg:ident)* &optional $($oarg:ident)+) => {
+        let mut _consumed_args = 0;
+        $(
+            get_arg!($l ; $n_args ; _consumed_args ; $arg);
+        )*;
+        $(
+            get_arg!(OPT $l ; $n_args ; _consumed_args ; $oarg);
+        )+;
+    };
+
+    ($l:ident ; $n_args:ident ; $($arg:ident)* &rest $rarg:ident) => {
+        let mut _consumed_args = 0;
+        $(
+            get_arg!($l ; $n_args ; _consumed_args ; $arg);
+        )*;
+        get_arg!(REST $l ; $n_args ; _consumed_args ; $rarg);
     };
 }
 
 macro_rules! builtin_function {
-    ($l:ident $name:tt ($($arg:tt)*) -> $blk:block) => {
+    ($l:ident ; $name:expr ; ($($arg:tt)*) -> $blk:block) => {
         {
             {
               (
-                String::from(stringify!($name)),
+                String::from($name),
                 arglist!($($arg )*),
                 Box::new(move |$l, _n_args| {
                     get_args!($l ; _n_args ; $($arg)*);
@@ -111,11 +129,11 @@ macro_rules! builtin_function {
 }
 
 macro_rules! special_form {
-    ($l:ident $name:tt ($($arg:tt)*) -> $blk:block) => {
+    ($l:ident ; $name:expr ; ($($arg:tt)*) -> $blk:block) => {
         {
             {
                 (
-                    String::from(stringify!($name)),
+                    String::from($name),
                     arglist!($($arg )*),
                     Box::new(move |$l| {
                         $blk
@@ -137,7 +155,7 @@ macro_rules! builtin_functions {
         $($name:tt ($($arg:tt)*) -> $blk:block),* $(,)*
     ) => {{
         let mut v: $crate::builtins::RlispBuiltins = Vec::new();
-        $(v.push(builtin_function!{$l $name ($($arg)*) -> $blk});)*;
+        $(v.push(builtin_function!{$l ; $name ; ($($arg)*) -> $blk});)*;
         v
     }};
 }
@@ -148,7 +166,7 @@ macro_rules! special_forms {
         $($name:tt ($($arg:tt)*) -> $blk:block),* $(,)*
     ) => {{
         let mut v: $crate::builtins::RlispSpecialForms = Vec::new();
-        $(v.push(special_form!{$l $name ($($arg)*) -> $blk});)*;
+        $(v.push(special_form!{$l ; $name ; ($($arg)*) -> $blk});)*;
         v
     }};
 }
@@ -166,7 +184,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
     use lisp::stack_storage::Stack;
     special_forms!{
         l = lisp;
-        cond (&rest clauses) -> {
+        "cond" (&rest clauses) -> {
             let n_args = l.pop()?.into_usize_or_error()?;
             debug!("called cond with {} args", n_args);
             let mut clauses = Vec::with_capacity(n_args);
@@ -185,7 +203,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
             }
             Ok(Object::nil())
         },
-        let (bindings &rest body) -> {
+        "let" (bindings &rest body) -> {
             let n_args = l.pop()?.into_usize_or_error()?;
             let bindings = l.pop()?;
             let mut body = Vec::with_capacity(n_args - 1);
@@ -211,7 +229,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
             }
             Ok(res)
         },
-        setq (symbol value &rest symbols values) -> {
+        "setq" (symbol value &rest symbols values) -> {
             let n_args = l.pop()?;
             if ::math::oddp(n_args) {
                 return Err(ErrorKind::WantedEvenArgCt.into());
@@ -227,7 +245,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
             }
             Ok(res)
         },
-        quote (x) -> {
+        "quote" (x) -> {
             let n_args = l.pop()?;
             if !::math::num_equals(n_args, Object::from(1.0)) {
                 Err(
@@ -240,7 +258,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
                 Ok(l.pop()?)
             }
         },
-        if (predicate ifclause &rest elseclauses) -> {
+        "if" (predicate ifclause &rest elseclauses) -> {
             let n_args = unsafe { l.pop()?.into_usize_unchecked() };
             if n_args < 2 {
                 Err(ErrorKind::WrongArgsCount(n_args, 2, None).into())
@@ -262,7 +280,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
                 }
             }
         },
-        defun (name arglist &rest body) -> {
+        "defun" (name arglist &rest body) -> {
             let n_args = unsafe { l.pop()?.into_usize_unchecked() };
             if n_args < 3 {
                 Err(ErrorKind::WrongArgsCount(n_args, 3, None).into())
@@ -282,7 +300,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
                 Ok(fun)
             }
         },
-        defvar (name value) -> {
+        "defvar" (name value) -> {
             let n_args = unsafe { l.pop()?.into_usize_unchecked() };
             if n_args != 2 {
                 Err(ErrorKind::WrongArgsCount(n_args, 2, Some(2)).into())
@@ -300,12 +318,12 @@ pub fn make_special_forms() -> RlispSpecialForms {
 pub fn make_builtins() -> RlispBuiltins {
     builtin_functions!{
         l = lisp;
-        numberp (n) -> { n.numberp().into() },
-        consp (c) -> { c.consp().into() },
-        cons (car cdr) -> { l.alloc(ConsCell::new(car, cdr)) },
-        list (&rest items) -> { items },
-        debug (obj) -> { println!("{:?}", obj); obj },
-        print (&rest objects) -> {
+        "numberp" (n) -> { n.numberp().into() },
+        "consp" (c) -> { c.consp().into() },
+        "cons" (car cdr) -> { l.alloc(ConsCell::new(car, cdr)) },
+        "list" (&rest items) -> { items },
+        "debug" (obj) -> { println!("{:?}", obj); obj },
+        "print" (&rest objects) -> {
             if let Some(cons) = objects.into_cons() {
                 let mut count: isize = 0;
                 for obj in cons {
@@ -317,6 +335,17 @@ pub fn make_builtins() -> RlispBuiltins {
             } else {
                 Object::nil()
             }
-        }
+        },
+        "eq" (first &rest objects) -> {
+            if let Some(cons) = objects.into_cons() {
+                #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
+                for el in cons.into_iter() {
+                    if !(first == el) {
+                        return Ok(Object::from(false));
+                    }
+                }
+            }
+            Object::from(true)
+        },
     }
 }

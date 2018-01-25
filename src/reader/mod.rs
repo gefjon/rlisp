@@ -20,7 +20,10 @@ pub trait Reader
     {
     fn read<V: Iterator<Item = u8>>(&mut self, input: &mut Peekable<V>) -> Result<Option<Object>> {
         debug!("called read()");
-        // This is the function called by `Rep`.
+        // This is the function called by `Rep`.  Passed an &mut
+        // Peekable<Iterator<Item = u8>>, it consumes the text
+        // representing the first Rlisp object and returns that
+        // object. Ok(None) signals that the iterator is empty (EOF).
         if let Some(peek) = Self::peek(input) {
             if let Some(symbol) = self.check_macro_char(peek) {
                 let _ = Self::next(input);
@@ -185,8 +188,16 @@ pub trait Reader
 
     #[cfg_attr(feature = "cargo-clippy", allow(while_let_on_iterator))]
     fn read_string<V: Iterator<Item = u8>>(&mut self, iter: &mut Peekable<V>) -> Result<Object> {
+        // this method binds `open` in case in the future I decide to
+        // have more characters open strings: if `%` opens a string
+        // (it doesn't, but imagine it did), `"` shouldn't close it,
+        // and vice versa.
         if let Some(open) = iter.next() {
             let mut string = Vec::new();
+
+            // this method calls `iter.next()` instead of
+            // `Self::next(iter)` because strings do not skip
+            // comments.
             while let Some(byte) = iter.next() {
                 match byte {
                     _ if byte == open => {
