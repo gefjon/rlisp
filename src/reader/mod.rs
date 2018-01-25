@@ -1,7 +1,7 @@
 /*
 I'm not going to lie, a lot of black magic goes on in this module. The
 core of it is the function `Reader::read()`, which is passed an `&mut
-Iterator<u8>` and parses an object from it.xs
+Iterator<u8>` and parses an object from it.
  */
 
 use lisp;
@@ -11,33 +11,30 @@ use std::iter::{Iterator, Peekable};
 use std::str::FromStr;
 use types::*;
 
-// reading numbers, symbols, and strings are currently stored in
-// traits in submodules. I would like for read_list to be its own
-// trait, but it needs to recurse on read_form, which would cause a
-// circular trait dependency that makes rustc unhappy. As a possible
-// change for the future, the symbol, number and string readers could
-// be moved into this master trait if I deem that more convenient.
-mod strings;
-use self::strings::ReadString;
-
 const WHITESPACE: &[u8] = &[b' ', b'\t', b'\n'];
 const COMMENT_DESIGNATORS: &[u8] = &[b';'];
 const COMMENT_ENDS: &[u8] = &[b'\n'];
 
-// This trait exists because writing all of these as required traits on Reader
-// makes that line so long that `cargo fmt` doesn't know what to do and errors
-pub trait ReaderDepends
+pub trait Reader
     : lisp::Symbols + lisp::MacroChars + lisp::allocate::AllocObject + list::ListOps
     {
-}
-
-impl ReaderDepends for lisp::Lisp {}
-
-pub trait Reader: strings::ReadString + ReaderDepends {
     fn read<V: Iterator<Item = u8>>(&mut self, input: &mut Peekable<V>) -> Result<Option<Object>> {
         debug!("called read()");
         // This is the function called by `Rep`.
-        self.read_form(input)
+        if let Some(peek) = Self::peek(input) {
+            if let Some(symbol) = self.check_macro_char(peek) {
+                let _ = Self::next(input);
+                if let Some(obj) = self.read(input)? {
+                    Ok(Some(self.list_from_vec(vec![symbol, obj])))
+                } else {
+                    Err(ErrorKind::UnexpectedEOF.into())
+                }
+            } else {
+                self.read_after_checking_macro_chars(input)
+            }
+        } else {
+            Ok(None)
+        }
     }
 
     fn next<V: Iterator<Item = u8>>(input: &mut Peekable<V>) -> Option<u8> {
@@ -119,32 +116,12 @@ pub trait Reader: strings::ReadString + ReaderDepends {
                     let _ = Self::next(iter);
                     Ok(Some(self.read_list(iter)?))
                 }
-                b'"' => Ok(Some(<Self as ReadString>::read_string(self, iter)?)),
+                b'"' => Ok(Some(self.read_string(iter)?)),
                 _ if WHITESPACE.contains(&peek) => {
                     let _ = Self::next(iter);
-                    self.read_form(iter)
+                    self.read(iter)
                 }
                 _ => self.read_symbol_or_number(iter),
-            }
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn read_form<V: Iterator<Item = u8>>(
-        &mut self,
-        iter: &mut Peekable<V>,
-    ) -> Result<Option<Object>> {
-        if let Some(peek) = Self::peek(iter) {
-            if let Some(symbol) = self.check_macro_char(peek) {
-                let _ = Self::next(iter);
-                if let Some(obj) = self.read_form(iter)? {
-                    Ok(Some(self.list_from_vec(vec![symbol, obj])))
-                } else {
-                    Err(ErrorKind::UnexpectedEOF.into())
-                }
-            } else {
-                self.read_after_checking_macro_chars(iter)
             }
         } else {
             Ok(None)
@@ -161,7 +138,7 @@ pub trait Reader: strings::ReadString + ReaderDepends {
                     return Ok(self.list_from_vec(elems));
                 }
                 _ => {
-                    if let Some(el) = self.read_form(iter)? {
+                    if let Some(el) = self.read(iter)? {
                         elems.push(el);
                     } else {
                         return Err(ErrorKind::UnclosedList.into());
@@ -203,6 +180,43 @@ pub trait Reader: strings::ReadString + ReaderDepends {
             Ok(Object::from(float))
         } else {
             Ok(self.intern(sym_str))
+        }
+    }
+
+    #[cfg_attr(feature = "cargo-clippy", allow(while_let_on_iterator))]
+    fn read_string<V: Iterator<Item = u8>>(&mut self, iter: &mut Peekable<V>) -> Result<Object> {
+        if let Some(open) = iter.next() {
+            let mut string = Vec::new();
+            while let Some(byte) = iter.next() {
+                match byte {
+                    _ if byte == open => {
+                        return Ok(self.alloc(RlispString::from(String::from_utf8(string)?)));
+                    }
+                    b'\\' => {
+                        if let Some(escape) = iter.next() {
+                            match escape {
+                                b't' => string.push(b'\t'),
+                                b'n' => string.push(b'\n'),
+                                _ if escape == open => string.push(escape),
+                                _ => {
+                                    warn!(
+                                        "Unrecognized escape character {} ({})",
+                                        char::from(escape),
+                                        escape
+                                    );
+                                    string.push(escape);
+                                }
+                            }
+                        } else {
+                            return Err(ErrorKind::UnclosedString.into());
+                        }
+                    }
+                    _ => string.push(byte),
+                }
+            }
+            Err(ErrorKind::UnclosedString.into())
+        } else {
+            unreachable!()
         }
     }
 }
