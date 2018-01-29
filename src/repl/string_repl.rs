@@ -2,26 +2,23 @@ use result::*;
 use super::{Rep, Repl};
 use lisp::Lisp;
 use std::default::Default;
-use std::{convert, mem};
+use std::{boxed, convert, mem};
 use std::iter::Iterator;
 
-pub struct StringRepl {
-    lisp: Lisp,
+pub struct StringRepl<R: convert::AsMut<Lisp>> {
+    lisp: R,
 }
 
-impl convert::From<Lisp> for StringRepl {
-    fn from(lisp: Lisp) -> Self {
+impl<R: convert::AsMut<Lisp>> convert::From<R> for StringRepl<R> {
+    fn from(lisp: R) -> Self {
         Self { lisp }
     }
 }
 
-impl convert::From<StringRepl> for Lisp {
-    fn from(repl: StringRepl) -> Self {
-        repl.lisp
-    }
-}
-
-impl Repl<Lisp> for StringRepl {
+impl<R> Repl<R, Lisp> for StringRepl<R>
+where
+    R: convert::AsMut<Lisp>,
+{
     type Input = String;
     type Output = String;
     type Error = String;
@@ -34,7 +31,7 @@ impl Repl<Lisp> for StringRepl {
         let mut iter = input.bytes().peekable();
 
         loop {
-            let result = <Lisp as Rep>::rep(&mut self.lisp, &mut iter);
+            let result = <Lisp as Rep>::rep(self.lisp.as_mut(), &mut iter);
             match result {
                 Ok(Some(out)) => Self::write_out(out, output)?,
                 Ok(None) => break,
@@ -54,10 +51,10 @@ impl Repl<Lisp> for StringRepl {
     }
 }
 
-impl Default for StringRepl {
+impl Default for StringRepl<boxed::Box<Lisp>> {
     fn default() -> Self {
         Self {
-            lisp: Lisp::default(),
+            lisp: boxed::Box::new(Lisp::default()),
         }
     }
 }

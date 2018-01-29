@@ -8,12 +8,12 @@ use std::convert;
 // stdio contains the REPL which reads from Stdin and prints to Stdout
 pub mod stdio;
 pub mod string_repl;
+pub mod vec_repl;
 
-pub trait Repl<L>: Default
+pub trait Repl<R, L>
 where
+    R: convert::AsMut<L>,
     L: Rep,
-    L: convert::From<Self>,
-    Self: convert::From<L>,
 {
     type Input;
     type Output;

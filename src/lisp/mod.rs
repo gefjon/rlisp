@@ -3,6 +3,7 @@ use std::default::Default;
 use types::*;
 use types::conversions::*;
 use builtins;
+use std::convert;
 
 mod macro_char_table;
 pub use self::macro_char_table::MacroChars;
@@ -142,5 +143,11 @@ impl Default for Lisp {
         me.source_builtins(builtins::make_builtins());
         me.source_builtins(::math::math_builtins::make_builtins());
         me
+    }
+}
+
+impl convert::AsMut<Lisp> for Lisp {
+    fn as_mut(&mut self) -> &mut Lisp {
+        self
     }
 }

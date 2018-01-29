@@ -4,6 +4,7 @@ use std::io::prelude::*;
 use super::{Rep, Repl};
 use lisp::Lisp;
 use std::iter::Iterator;
+use std::boxed;
 use std::default::Default;
 use std::convert;
 
@@ -12,31 +13,17 @@ use std::convert;
 // and exit either on I/O error or on EOF. Note: because it will not
 // exit on an internal error, the stack can become deformed when an
 // operation goes wrong.
-pub struct StdIoRepl {
-    lisp: Lisp,
+pub struct StdIoRepl<R: convert::AsMut<Lisp>> {
+    lisp: R,
 }
 
-impl Default for StdIoRepl {
-    fn default() -> Self {
-        Self {
-            lisp: Lisp::default(),
-        }
-    }
-}
-
-impl convert::From<Lisp> for StdIoRepl {
-    fn from(lisp: Lisp) -> Self {
+impl<R: convert::AsMut<Lisp>> convert::From<R> for StdIoRepl<R> {
+    fn from(lisp: R) -> Self {
         Self { lisp }
     }
 }
 
-impl convert::From<StdIoRepl> for Lisp {
-    fn from(repl: StdIoRepl) -> Self {
-        repl.lisp
-    }
-}
-
-impl Repl<Lisp> for StdIoRepl {
+impl<R: convert::AsMut<Lisp>> Repl<R, Lisp> for StdIoRepl<R> {
     type Input = io::Stdin;
     type Output = io::Stdout;
     type Error = io::Stderr;
@@ -52,7 +39,7 @@ impl Repl<Lisp> for StdIoRepl {
 
         loop {
             self.prompt(output)?;
-            let result = <Lisp as Rep>::rep(&mut self.lisp, &mut iter);
+            let result = <Lisp as Rep>::rep(self.lisp.as_mut(), &mut iter);
             match result {
                 Ok(Some(out)) => Self::write_out(out, output)?,
                 Ok(None) => break,
