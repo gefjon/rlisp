@@ -40,22 +40,22 @@ pub trait Rep: ::reader::Reader + ::evaluator::Evaluator {
     fn read<V: Iterator<Item = u8>>(&mut self, input: &mut Peekable<V>) -> Result<Option<Object>> {
         <Self as ::reader::Reader>::read(self, input)
     }
-    fn eval(&mut self, read: Object) -> Result<Object> {
+    fn eval(&mut self, read: Object) -> Object {
         let res = <Self as ::evaluator::Evaluator>::evaluate(self, read);
-        if res.is_err() {
+        if <&RlispError as conversions::FromObject>::is_type(res) {
             info!("evaluation errored; cleaning stack");
             <Self as ::lisp::stack_storage::Stack>::clean_stack(self);
         }
         res
     }
-    fn print(&self, evaled: Object) -> Result<String> {
-        Ok(format!("{}", evaled))
+    fn print(&self, evaled: Object) -> String {
+        format!("{}", evaled)
     }
     fn rep<V: Iterator<Item = u8>>(&mut self, input: &mut Peekable<V>) -> Result<Option<String>> {
         let read = <Self as Rep>::read(self, input)?;
         if let Some(obj) = read {
-            let evaled = self.eval(obj)?;
-            Ok(Some(self.print(evaled)?))
+            let evaled = self.eval(obj);
+            Ok(Some(self.print(evaled)))
         } else {
             Ok(None)
         }

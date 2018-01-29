@@ -1,178 +1,20 @@
+use lisp::symbols_table::Symbols;
 use result::*;
 use types::*;
 use lisp;
 use std::boxed::Box;
 use lisp::allocate::AllocObject;
+use types::conversions::*;
 
-macro_rules! arglist {
-    ($($arg:ident)*) => {
-        {
-            let mut arglist = Vec::new();
-            $(arglist.push(String::from(stringify!($arg)));)*;
-            arglist
-        }
-    };
-    ($($arg:ident)* &optional $($oarg:ident)+) => {
-        {
-            let mut arglist = Vec::new();
-            $(arglist.push(String::from(stringify!($arg)));)*;
-            arglist.push(String::from("&optional"));
-            $(arglist.push(String::from(stringify!($oarg)));)*;
-            arglist
-        }
-    };
-    ($($arg:ident)* &rest $rarg:ident) => {
-        {
-            let mut arglist = Vec::new();
-            $(arglist.push(String::from(stringify!($arg)));)*;
-            arglist.push(String::from("&rest"));
-            arglist.push(String::from(stringify!($rarg)));
-            arglist
-        }
-    };
-    ($($arg:ident)* &rest $($rarg:ident)*) => {
-        // Only special forms get to have multiple `&rest` args
-        {
-            let mut arglist = Vec::new();
-            $(arglist.push(String::from(stringify!($arg)));)*;
-            arglist.push(String::from("&rest"));
-            $(arglist.push(String::from(stringify!($rarg)));)*;
-            arglist
-        }
-    };
-}
-
-macro_rules! get_arg {
-    ($l:ident ; $n_args:ident ; $consumed_args:ident ; $arg:ident) => {
-        debug_assert!($consumed_args < $n_args);
-        let $arg = <$crate::lisp::Lisp as $crate::lisp::stack_storage::Stack>
-                ::pop($l)?;
-        $consumed_args += 1;
-
-        debug!("popped {} as an argument; have now consumed {} args", $arg, $consumed_args);
-    };
-
-    (OPT $l:ident ; $n_args:ident ; $consumed_args:ident ; $arg:ident) => {
-        let $arg = if $consumed_args < $n_args {
-            $consumed_args += 1;
-            <$crate::lisp::stack_storage::Stack>::pop($l)?
-        } else {
-            $crate::types::Object::nil()
-        };
-        debug!("popped {} as an argument; have now consumed {} args", $arg, $consumed_args);
-    };
-
-    (REST $l:ident ; $n_args:ident ; $consumed_args:ident ; $arg:ident) => {
-        let $arg = {
-            let mut head = $crate::types::Object::nil();
-            while $consumed_args < $n_args {
-                $consumed_args += 1;
-                let conscell = $crate::types::ConsCell::new(
-                    <$crate::lisp::Lisp as $crate::lisp::stack_storage::Stack>
-                        ::pop($l)?, head);
-                head = <$crate::lisp::Lisp as $crate::lisp::allocate::AllocObject>
-                    ::alloc::<$crate::types::ConsCell>($l, conscell);
-            }
-            if head != $crate::types::Object::nil() {
-                <$crate::lisp::Lisp as $crate::list::ListOps>
-                    ::list_reverse($l, head.into_cons_or_error()?)
-            } else {
-                head
-            }
-        };
-        debug!("popped {} as an argument; have now consumed {} args", $arg, $consumed_args);
-    };
-}
-
-macro_rules! get_args {
-    ($l:ident ; $n_args:ident ; $($arg:ident)*) => {
-        let mut _consumed_args = 0;
-        $(
-            get_arg!($l ; $n_args ; _consumed_args ; $arg);
-        )*;
-    };
-
-    ($l:ident ; $n_args:ident ; $($arg:ident)* &optional $($oarg:ident)+) => {
-        let mut _consumed_args = 0;
-        $(
-            get_arg!($l ; $n_args ; _consumed_args ; $arg);
-        )*;
-        $(
-            get_arg!(OPT $l ; $n_args ; _consumed_args ; $oarg);
-        )+;
-    };
-
-    ($l:ident ; $n_args:ident ; $($arg:ident)* &rest $rarg:ident) => {
-        let mut _consumed_args = 0;
-        $(
-            get_arg!($l ; $n_args ; _consumed_args ; $arg);
-        )*;
-        get_arg!(REST $l ; $n_args ; _consumed_args ; $rarg);
-    };
-}
-
-macro_rules! builtin_function {
-    ($l:ident ; $name:expr ; ($($arg:tt)*) -> $blk:block) => {
-        {
-            {
-              (
-                String::from($name),
-                arglist!($($arg )*),
-                Box::new(move |$l, _n_args| {
-                    get_args!($l ; _n_args ; $($arg)*);
-                    Ok($blk)
-                })
-             )
-            }
-        }
-    };
-}
-
-macro_rules! special_form {
-    ($l:ident ; $name:expr ; ($($arg:tt)*) -> $blk:block) => {
-        {
-            {
-                (
-                    String::from($name),
-                    arglist!($($arg )*),
-                    Box::new(move |$l| {
-                        $blk
-                    })
-                )
-            }
-        }
-    };
-}
-
-// This macro is the main part of this module. See make_builtins() for
-// its use.  Each function consists of a string name, a list of
+// The macros `special_forms` and `builtin_functions` are the main
+// part of this module. See `make_builtins()` and `make_special_forms`
+// for their use.  Each function consists of a string name, a list of
 // identifiers which will have args bound to them, and a block which
 // returns an Object. The block can use the `?` operator, but should
 // do so sparingly
-macro_rules! builtin_functions {
-    (
-        $l:tt = lisp;
-        $($name:tt ($($arg:tt)*) -> $blk:block),* $(,)*
-    ) => {{
-        let mut v: $crate::builtins::RlispBuiltins = Vec::new();
-        $(v.push(builtin_function!{$l ; $name ; ($($arg)*) -> $blk});)*;
-        v
-    }};
-}
 
-macro_rules! special_forms {
-    (
-        $l:tt = lisp;
-        $($name:tt ($($arg:tt)*) -> $blk:block),* $(,)*
-    ) => {{
-        let mut v: $crate::builtins::RlispSpecialForms = Vec::new();
-        $(v.push(special_form!{$l ; $name ; ($($arg)*) -> $blk});)*;
-        v
-    }};
-}
-
-pub type RlispBuiltinFunc = FnMut(&mut lisp::Lisp, usize) -> Result<Object>;
-pub type RlispSpecialForm = FnMut(&mut lisp::Lisp) -> Result<Object>;
+pub type RlispBuiltinFunc = FnMut(&mut lisp::Lisp, usize) -> Object;
+pub type RlispSpecialForm = FnMut(&mut lisp::Lisp) -> Object;
 pub type Arglist = Vec<String>;
 pub type Name = String;
 pub type RlispBuiltinTuple = (Name, Arglist, Box<RlispBuiltinFunc>);
@@ -181,135 +23,159 @@ pub type RlispBuiltins = Vec<RlispBuiltinTuple>;
 
 pub fn make_special_forms() -> RlispSpecialForms {
     use evaluator::Evaluator;
-    use lisp::stack_storage::Stack;
     special_forms!{
         l = lisp;
         "cond" (&rest clauses) -> {
-            let n_args = l.pop()?.into_usize_or_error()?;
+            let n_args: usize = unsafe { pop_bubble!(l).into_unchecked() };
             debug!("called cond with {} args", n_args);
             let mut clauses = Vec::with_capacity(n_args);
             for _i in 0..n_args {
                 debug!("popping arg {}", _i);
-                let arg = l.pop()?;
+                let arg = pop_bubble!(l);
                 debug!("arg {} was {}", _i, arg);
                 clauses.push(arg);
             }
             for clause in &clauses {
-                let &ConsCell { car, cdr, .. } = clause.into_cons_or_error()?;
-                if bool::from(l.evaluate(car)?) {
-                    let &ConsCell { car: cdrcar, .. } = cdr.into_cons_or_error()?;
-                    return Ok(l.evaluate(cdrcar)?);
+                let &ConsCell { car, cdr, .. } = into_type_or_error!(l : *clause => &ConsCell);
+                if bool::from(l.evaluate(car)) {
+                    let &ConsCell { car: cdrcar, .. } =  into_type_or_error!(l : cdr => &ConsCell);
+                    return l.evaluate(cdrcar);
                 }
             }
-            Ok(Object::nil())
+            Object::nil()
         },
         "let" (bindings &rest body) -> {
-            let n_args = l.pop()?.into_usize_or_error()?;
-            let bindings = l.pop()?;
+            let n_args: usize = unsafe { pop_bubble!(l).into_unchecked() };
+            let bindings = pop_bubble!(l);
             let mut body = Vec::with_capacity(n_args - 1);
             for _i in 0..(n_args - 1) {
-                let arg = l.pop()?;
+                let arg = pop_bubble!(l);
                 body.push(arg);
             }
             let mut symbols_bound = Vec::new();
 
             #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
-            for binding_pair in bindings.into_cons_or_error()?.into_iter() {
-                let &ConsCell { car: symbol, cdr, .. } = binding_pair.into_cons_or_error()?;
-                let &ConsCell { car: value, .. } = cdr.into_cons_or_error()?;
-                symbol.into_symbol_mut_or_error()?.push(l.evaluate(value)?);
+            for binding_pair in into_type_or_error!(l : bindings => &ConsCell).into_iter() {
+                let &ConsCell { car: symbol, cdr, .. } =
+                    into_type_or_error!(l : binding_pair => &ConsCell);
+                let &ConsCell { car: value, .. } = into_type_or_error!(l : cdr => &ConsCell);
+                into_type_or_error!(l : symbol => &mut Symbol)
+                    .push({
+                        let r = l.evaluate(value);
+                        bubble!(r);
+                        r
+                    });
                 symbols_bound.push(symbol);
             }
             let mut res = Object::nil();
             for body_clause in &body {
-                res = l.evaluate(*body_clause)?;
+                res = l.evaluate(*body_clause);
+                bubble!(res);
             }
             for symbol in &symbols_bound {
-                symbol.into_symbol_mut_or_error()?.pop();
+                unsafe { <Object as IntoUnchecked<&mut Symbol>>
+                         ::into_unchecked(*symbol).pop(); }
             }
-            Ok(res)
+            res
         },
         "setq" (symbol value &rest symbols values) -> {
-            let n_args = l.pop()?;
+            let n_args = unsafe { pop_bubble!(l).into_unchecked() };
             if ::math::oddp(n_args) {
-                return Err(ErrorKind::WantedEvenArgCt.into());
+                let e: Error = ErrorKind::WantedEvenArgCt.into();
+                let e: RlispError = e.into();
+                l.alloc(e)
+            } else {
+                let mut n_args: usize = n_args as _;
+                let mut res = Object::nil();
+                while n_args > 1 {
+                    n_args -= 2;
+                    let sym = pop_bubble!(l);
+                    let sym = into_type_or_error!(l : sym => &mut Symbol);
+                    let value = pop_bubble!(l);
+                    res = l.evaluate(value);
+                    bubble!(res);
+                    sym.set(res);
+                }
+                res
             }
-            let mut n_args = n_args.into_usize_or_error()?;
-            let mut res = Object::nil();
-            while n_args > 1 {
-                n_args -= 2;
-                let sym = l.pop()?.into_symbol_mut_or_error()?;
-                let value = l.pop()?;
-                res = l.evaluate(value)?;
-                sym.set(res);
-            }
-            Ok(res)
         },
         "quote" (x) -> {
-            let n_args = l.pop()?;
-            if !::math::num_equals(n_args, Object::from(1.0)) {
-                Err(
+            let n_args = pop_bubble!(l);
+            if n_args != Object::from(1.0) {
+                let e: Error =
                     ErrorKind::WrongArgsCount(
-                        unsafe { n_args.into_usize_unchecked() },
+                        unsafe { n_args.into_unchecked() },
                         1, Some(1)
-                    ).into()
-                )
+                    ).into();
+                let e: RlispError = e.into();
+                l.alloc(e)
             } else {
-                Ok(l.pop()?)
+                pop_bubble!(l)
             }
         },
         "if" (predicate ifclause &rest elseclauses) -> {
-            let n_args = unsafe { l.pop()?.into_usize_unchecked() };
+            let n_args: usize = unsafe { pop_bubble!(l).into_unchecked() };
             if n_args < 2 {
-                Err(ErrorKind::WrongArgsCount(n_args, 2, None).into())
+                let e: Error = ErrorKind::WrongArgsCount(n_args, 2, None).into();
+                let e: RlispError = e.into();
+                l.alloc(e)
             } else {
-                let cond = l.pop()?;
-                let if_clause = l.pop()?;
+                let cond = pop_bubble!(l);
+                let if_clause = pop_bubble!(l);
                 let mut else_clauses = Vec::with_capacity(n_args - 2);
                 for _ in 0..(n_args - 2) {
-                    else_clauses.push(l.pop()?);
+                    else_clauses.push(pop_bubble!(l));
                 }
-                if bool::from(l.evaluate(cond)?) {
-                    Ok(l.evaluate(if_clause)?)
+                if bool::from({
+                    let r = l.evaluate(cond);
+                    bubble!(r);
+                    r
+                }) {
+                    l.evaluate(if_clause)
                 } else {
                     let mut res = Object::nil();
                     for clause in &else_clauses {
-                        res = l.evaluate(*clause)?;
+                        res = l.evaluate(*clause);
                     }
-                    Ok(res)
+                    res
                 }
             }
         },
         "defun" (name arglist &rest body) -> {
-            let n_args = unsafe { l.pop()?.into_usize_unchecked() };
+            let n_args: usize = unsafe { pop_bubble!(l).into_unchecked() };
             if n_args < 3 {
-                Err(ErrorKind::WrongArgsCount(n_args, 3, None).into())
+                let e: Error = ErrorKind::WrongArgsCount(n_args, 3, None).into();
+                let e: RlispError = e.into();
+                l.alloc(e)
             } else {
-                let name = l.pop()?;
-                let arglist = l.pop()?;
+                let name = pop_bubble!(l);
+                let arglist = pop_bubble!(l);
                 let mut body = Vec::with_capacity(n_args - 2);
                 for _ in 0..(n_args - 2) {
-                    body.push(l.pop()?);
+                    body.push(pop_bubble!(l));
                 }
                 let fun = l.alloc(
                     RlispFunc::from_body(body)
                         .with_name(name)
                         .with_arglist(arglist)
                 );
-                name.into_symbol_mut_or_error()?.reset(fun);
-                Ok(fun)
+                into_type_or_error!(l : name => &mut Symbol).reset(fun);
+                fun
             }
         },
         "defvar" (name value) -> {
-            let n_args = unsafe { l.pop()?.into_usize_unchecked() };
+            let n_args: usize = unsafe { pop_bubble!(l).into_unchecked() };
             if n_args != 2 {
-                Err(ErrorKind::WrongArgsCount(n_args, 2, Some(2)).into())
+                let e: Error = ErrorKind::WrongArgsCount(n_args, 2, Some(2)).into();
+                let e: RlispError = e.into();
+                l.alloc(e)
             } else {
-                let name = l.pop()?;
-                let val = l.pop()?;
-                let val = l.evaluate(val)?;
-                name.into_symbol_mut_or_error()?.reset(val);
-                Ok(val)
+                let name = pop_bubble!(l);
+                let val = pop_bubble!(l);
+                let val = l.evaluate(val);
+                bubble!(val);
+                into_type_or_error!(l : name => &mut Symbol).reset(val);
+                val
             }
         },
     }
@@ -324,7 +190,7 @@ pub fn make_builtins() -> RlispBuiltins {
         "list" (&rest items) -> { items },
         "debug" (obj) -> { println!("{:?}", obj); obj },
         "print" (&rest objects) -> {
-            if let Some(cons) = objects.into_cons() {
+            if let Some(cons) = <&ConsCell as MaybeFrom<_>>::maybe_from(objects) {
                 let mut count: isize = 0;
                 for obj in cons {
                     print!("{}", obj);
@@ -337,13 +203,18 @@ pub fn make_builtins() -> RlispBuiltins {
             }
         },
         "eq" (first &rest objects) -> {
-            if let Some(cons) = objects.into_cons() {
+            if let Some(cons) = <&ConsCell as MaybeFrom<_>>::maybe_from(objects) {
                 #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
                 for el in cons.into_iter() {
                     if !(first == el) {
-                        return Ok(Object::from(false));
+                        return Object::nil();
                     }
                 }
+            } else if !objects.nilp() {
+                let e: RlispError = RlispError::wrong_type(l.type_name(RlispType::Cons),
+                                                      l.type_name(objects.what_type())).into();
+
+                return l.alloc(e);
             }
             Object::from(true)
         },

@@ -69,14 +69,17 @@ mod result {
         }
     }
 }
-#[macro_use]
-mod builtins;
 
+#[macro_use]
+mod rust_macros;
+
+mod types;
+mod builtins;
 mod gc;
 mod reader;
 mod evaluator;
 mod math;
-pub mod types;
+
 pub mod repl;
 pub mod lisp;
 pub mod list;

@@ -1,21 +1,23 @@
 use std::collections::HashMap;
 use std::default::Default;
 use types::*;
+use types::conversions::*;
 use builtins;
 
 mod macro_char_table;
 pub use self::macro_char_table::MacroChars;
 
-mod symbols_table;
+pub mod symbols_table;
 pub use self::symbols_table::Symbols;
 
 pub mod stack_storage {
-    use types::Object;
+    use types::*;
     use result::*;
     use lisp;
+    use lisp::allocate::AllocObject;
     pub trait Stack {
         fn push(&mut self, obj: Object);
-        fn pop(&mut self) -> Result<Object>;
+        fn pop(&mut self) -> Object;
         fn stack_vec(&self) -> &Vec<Object>;
         fn clean_stack(&mut self);
     }
@@ -23,11 +25,13 @@ pub mod stack_storage {
         fn push(&mut self, obj: Object) {
             self.stack.push(obj);
         }
-        fn pop(&mut self) -> Result<Object> {
+        fn pop(&mut self) -> Object {
             if let Some(obj) = self.stack.pop() {
-                Ok(obj)
+                obj
             } else {
-                Err(ErrorKind::StackUnderflow.into())
+                let e: Error = ErrorKind::StackUnderflow.into();
+                let e: RlispError = e.into();
+                self.alloc(e)
             }
         }
         fn stack_vec(&self) -> &Vec<Object> {
@@ -95,7 +99,9 @@ impl Lisp {
                     .with_name(name)
                     .with_arglist(arglist),
             );
-            name.into_symbol_mut_unchecked().set(fun);
+            unsafe {
+                <Object as IntoUnchecked<&mut Symbol>>::into_unchecked(name).set(fun);
+            }
         }
     }
     fn source_special_forms(&mut self, mut special_forms: builtins::RlispSpecialForms) {
@@ -115,7 +121,9 @@ impl Lisp {
                     .with_name(name)
                     .with_arglist(arglist),
             );
-            name.into_symbol_mut_unchecked().set(fun);
+            unsafe {
+                <Object as IntoUnchecked<&mut Symbol>>::into_unchecked(name).set(fun);
+            }
         }
     }
 }

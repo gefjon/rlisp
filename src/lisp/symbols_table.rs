@@ -6,6 +6,19 @@ pub trait Symbols {
     fn intern<T>(&mut self, sym: T) -> Object
     where
         ::std::string::String: ::std::convert::From<T>;
+    fn type_name(&mut self, typ: RlispType) -> Object {
+        self.intern(match typ {
+            RlispType::Cons => "cons",
+            RlispType::Num => "number",
+            RlispType::Sym => "symbol",
+            RlispType::String => "string",
+            RlispType::Function => "function",
+            RlispType::Bool => "boolean",
+            RlispType::Error => "error",
+            RlispType::Integer => "integer",
+            RlispType::NatNum => "natnum",
+        })
+    }
 }
 
 impl Symbols for Lisp {

@@ -25,8 +25,14 @@ pub use self::symbol::Symbol;
 pub mod cons;
 pub use self::cons::ConsCell;
 
+pub mod rlisperror;
+pub use self::rlisperror::RlispError;
+
 pub mod function;
 pub use self::function::RlispFunc;
+
+pub mod conversions;
+use self::conversions::*;
 
 #[derive(Copy, Clone)]
 pub enum Object {
@@ -35,6 +41,7 @@ pub enum Object {
     Sym(*const Symbol),
     String(*const RlispString),
     Function(*const RlispFunc),
+    Error(*const RlispError),
     Bool(bool),
 }
 
@@ -46,6 +53,9 @@ pub enum RlispType {
     String,
     Function,
     Bool,
+    Error,
+    Integer,
+    NatNum,
 }
 
 impl Object {
@@ -126,103 +136,7 @@ impl Object {
             Object::String(_) => RlispType::String,
             Object::Function(_) => RlispType::Function,
             Object::Bool(_) => RlispType::Bool,
-        }
-    }
-    pub fn into_usize(self) -> Option<usize> {
-        if let Object::Num(float) = self {
-            if (float > ::std::usize::MIN as _) && (float < ::std::usize::MAX as _) {
-                return Some(float as usize);
-            }
-        }
-        None
-    }
-    pub fn into_usize_or_error(self) -> Result<usize> {
-        if let Object::Num(float) = self {
-            if (float > ::std::usize::MIN as _) && (float < ::std::usize::MAX as _) {
-                return Ok(float as usize);
-            }
-        }
-        Err(ErrorKind::WrongType(RlispType::Num, self.what_type()).into())
-    }
-    pub unsafe fn into_usize_unchecked(self) -> usize {
-        if let Object::Num(float) = self {
-            float as usize
-        } else {
-            panic!()
-        }
-    }
-    pub fn into_float(self) -> Option<f64> {
-        if let Object::Num(float) = self {
-            Some(float)
-        } else {
-            None
-        }
-    }
-    pub fn into_float_or_error(self) -> Result<f64> {
-        if let Object::Num(float) = self {
-            Ok(float)
-        } else {
-            Err(ErrorKind::WrongType(RlispType::Num, self.what_type()).into())
-        }
-    }
-    pub fn into_symbol<'unbound>(self) -> Option<&'unbound Symbol> {
-        if let Object::Sym(ptr) = self {
-            Some(unsafe { &(*ptr) })
-        } else {
-            None
-        }
-    }
-    pub fn into_symbol_mut<'unbound>(self) -> Option<&'unbound mut Symbol> {
-        // binding a symbol requires &mut Symbol (duh)
-        if let Object::Sym(ptr) = self {
-            Some(unsafe { &mut (*(ptr as *mut Symbol)) })
-        } else {
-            None
-        }
-    }
-    pub fn into_symbol_mut_or_error<'unbound>(self) -> Result<&'unbound mut Symbol> {
-        // binding a symbol requires &mut Symbol (duh)
-        if let Object::Sym(ptr) = self {
-            Ok(unsafe { &mut (*(ptr as *mut Symbol)) })
-        } else {
-            Err(ErrorKind::WrongType(RlispType::Sym, self.what_type()).into())
-        }
-    }
-    pub fn into_symbol_mut_unchecked<'unbound>(self) -> &'unbound mut Symbol {
-        if let Object::Sym(ptr) = self {
-            unsafe { &mut (*(ptr as *mut Symbol)) }
-        } else {
-            panic!()
-        }
-    }
-    pub fn into_cons<'unbound>(self) -> Option<&'unbound ConsCell> {
-        if let Object::Cons(ptr) = self {
-            Some(unsafe { &(*ptr) })
-        } else {
-            None
-        }
-    }
-    pub fn into_cons_or_error<'unbound>(self) -> Result<&'unbound ConsCell> {
-        if let Object::Cons(ptr) = self {
-            Ok(unsafe { &(*ptr) })
-        } else {
-            Err(ErrorKind::WrongType(RlispType::Cons, self.what_type()).into())
-        }
-    }
-    pub fn into_function<'unbound>(self) -> Option<&'unbound mut RlispFunc> {
-        // because builtin functions are FnMut, it is only ever
-        // meaningful to return a &mut RlispFunc
-        if let Object::Function(ptr) = self {
-            Some(unsafe { &mut (*(ptr as *mut RlispFunc)) })
-        } else {
-            None
-        }
-    }
-    pub fn into_function_or_error<'unbound>(self) -> Result<&'unbound mut RlispFunc> {
-        if let Object::Function(ptr) = self {
-            Ok(unsafe { &mut (*(ptr as *mut RlispFunc)) })
-        } else {
-            Err(ErrorKind::WrongType(RlispType::Function, self.what_type()).into())
+            Object::Error(_) => RlispType::Error,
         }
     }
     pub unsafe fn deallocate(self) {
@@ -253,6 +167,9 @@ impl Object {
                 Box::from_raw(f as *mut RlispFunc);
                 debug!("box built, will drop it");
             }
+            Object::Error(e) => {
+                Box::from_raw(e as *mut RlispFunc);
+            }
         }
     }
     pub fn gc_mark(self, marking: ::gc::GcMark) {
@@ -267,6 +184,7 @@ impl Object {
             Object::Sym(s) => unsafe { (*(s as *mut Symbol)).gc_mark(marking) },
             Object::String(s) => unsafe { (*(s as *mut RlispString)).gc_mark(marking) },
             Object::Function(f) => unsafe { (*(f as *mut RlispFunc)).gc_mark(marking) },
+            Object::Error(e) => unsafe { (*(e as *mut RlispError)).gc_mark(marking) },
         }
     }
     pub fn should_dealloc(self, current_marking: ::gc::GcMark) -> bool {
@@ -276,6 +194,7 @@ impl Object {
             Object::Cons(c) => unsafe { (*c).should_dealloc(current_marking) },
             Object::String(s) => unsafe { (*s).should_dealloc(current_marking) },
             Object::Function(f) => unsafe { (*f).should_dealloc(current_marking) },
+            Object::Error(e) => unsafe { (*e).should_dealloc(current_marking) },
         }
     }
 }
@@ -290,6 +209,7 @@ impl fmt::Display for Object {
             Object::Cons(c) => unsafe { write!(f, "{}", *c) },
             Object::String(s) => unsafe { write!(f, "{}", *s) },
             Object::Function(func) => unsafe { write!(f, "{}", *func) },
+            Object::Error(e) => unsafe { write!(f, "{}", *e) },
         }
     }
 }
@@ -304,6 +224,7 @@ impl fmt::Debug for Object {
             Object::Cons(c) => unsafe { write!(f, "{:?}", *c) },
             Object::String(s) => unsafe { write!(f, "{:?}", *s) },
             Object::Function(func) => unsafe { write!(f, "{:?}", *func) },
+            Object::Error(e) => unsafe { write!(f, "{}", *e) },
         }
     }
 }
@@ -318,7 +239,7 @@ impl Default for Object {
 impl convert::From<Object> for bool {
     // in a lisp, every Object except `nil` evaluates true
     fn from(obj: Object) -> bool {
-        !obj.nilp()
+        !(obj.nilp() && <&RlispError as FromObject>::is_type(obj))
     }
 }
 
@@ -346,6 +267,12 @@ impl convert::From<*const RlispFunc> for Object {
     }
 }
 
+impl convert::From<*const RlispError> for Object {
+    fn from(err: *const RlispError) -> Self {
+        Object::Error(err)
+    }
+}
+
 impl convert::From<*mut RlispString> for Object {
     fn from(string: *mut RlispString) -> Self {
         Object::String(string as _)
@@ -367,6 +294,12 @@ impl convert::From<*mut Symbol> for Object {
 impl convert::From<*mut RlispFunc> for Object {
     fn from(func: *mut RlispFunc) -> Self {
         Object::Function(func as _)
+    }
+}
+
+impl convert::From<*mut RlispError> for Object {
+    fn from(err: *mut RlispError) -> Self {
+        Object::Error(err as _)
     }
 }
 

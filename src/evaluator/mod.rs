@@ -11,11 +11,12 @@ use list::ConsIteratorResult;
 use types::function::*;
 use builtins::{RlispBuiltinFunc, RlispSpecialForm};
 use gc;
+use types::conversions::*;
 
 pub trait Evaluator
     : lisp::Symbols + lisp::stack_storage::Stack + gc::GarbageCollector + list::ListOps
     {
-    fn evaluate(&mut self, input: Object) -> Result<Object> {
+    fn evaluate(&mut self, input: Object) -> Object {
         debug!("evaluating {}", input);
         debug!(
             "evaluate(): pushing {} to the stack so it doesn't get gc'd",
@@ -25,13 +26,15 @@ pub trait Evaluator
         let res = match input {
             Object::Sym(s) => self.eval_symbol(s),
             Object::Cons(c) => self.eval_list(c),
-            Object::Bool(_) | Object::String(_) | Object::Num(_) | Object::Function(_) => Ok(input), // the majority of types evaluate to themselves
+            Object::Bool(_)
+            | Object::String(_)
+            | Object::Num(_)
+            | Object::Function(_)
+            | Object::Error(_) => input, // the majority of types evaluate to themselves
         };
         self.gc_maybe_pass();
-        if let Ok(obj) = res {
-            debug!("{} evaluated to {}", input, obj);
-        }
-        let _popped = self.pop()?;
+        debug!("{} evaluated to {}", input, res);
+        let _popped = pop_bubble!(self);
         debug!(
             "evaluate(): popped {} from the stack as we have finished evaluating it",
             _popped
@@ -39,28 +42,35 @@ pub trait Evaluator
         debug_assert!(_popped == input);
         res
     }
-    fn eval_symbol(&mut self, s: *const Symbol) -> Result<Object> {
+    fn eval_symbol(&mut self, s: *const Symbol) -> Object {
         if let Some(obj) = unsafe { (*s).get() } {
-            Ok(obj)
+            obj
         } else {
-            Err(ErrorKind::Unbound.into())
+            let e: Error = ErrorKind::Unbound.into();
+            let e: RlispError = e.into();
+            self.alloc(e)
         }
     }
-    fn eval_list(&mut self, c: *const ConsCell) -> Result<Object> {
+    fn eval_list(&mut self, c: *const ConsCell) -> Object {
         // Evaluating a list entails treating the car as a function
         // and calling it with the rest of the list as arguments.
         // Future improvement: push NumArgs to the stack to allow for
         // &optional and &rest args
+
         let &ConsCell { car, cdr, .. } = unsafe { &(*c) };
-        let func = self.evaluate(car)?.into_function_or_error()?;
+        let car = self.evaluate(car);
+        let func = into_type_or_error!(self : car => &mut RlispFunc);
+
         if let FunctionBody::SpecialForm(ref mut func) = func.body {
-            let num_args = if let Some(cons) = cdr.into_cons() {
-                let mut iter = list::iter(self.list_reverse(cons).into_cons_or_error()?);
+            let num_args = if let Some(cons) = cdr.maybe_into() {
+                let mut iter = list::iter(unsafe { self.list_reverse(cons).into_unchecked() });
                 let mut num_args: usize = 0;
                 loop {
                     let res = iter.improper_next();
                     if let list::ConsIteratorResult::Final(Some(_)) = res {
-                        return Err(ErrorKind::ImproperList.into());
+                        let e: Error = ErrorKind::ImproperList.into();
+                        let e: RlispError = e.into();
+                        return self.alloc(e);
                     } else if let list::ConsIteratorResult::More(obj) = res {
                         num_args += 1;
                         debug!("eval_list(): pushing {} as an argument", obj);
@@ -73,19 +83,22 @@ pub trait Evaluator
             } else {
                 0
             };
+
             debug!("eval_list(): pushing {} as num_args", num_args);
             self.push(Object::from(num_args));
             self.call_special_form((*func).as_mut())
         } else {
-            let num_args = if let Some(cons) = cdr.into_cons() {
-                let mut iter = list::iter(self.list_reverse(cons).into_cons_or_error()?);
+            let num_args = if let Some(cons) = cdr.maybe_into() {
+                let mut iter = list::iter(unsafe { self.list_reverse(cons).into_unchecked() });
                 let mut num_args: usize = 0;
                 loop {
                     let res = iter.improper_next();
                     if let list::ConsIteratorResult::Final(Some(_)) = res {
-                        return Err(ErrorKind::ImproperList.into());
+                        let e: Error = ErrorKind::ImproperList.into();
+                        let e: RlispError = e.into();
+                        return self.alloc(e);
                     } else if let list::ConsIteratorResult::More(obj) = res {
-                        let obj = self.evaluate(obj)?;
+                        let obj = self.evaluate(obj);
                         num_args += 1;
                         debug!("eval_list(): pushing {} as an argument", obj);
                         self.push(obj);
@@ -97,13 +110,14 @@ pub trait Evaluator
             } else {
                 0
             };
+
             debug!("eval_list(): pushing {} as num_args", num_args);
             self.push(Object::from(num_args));
             self.funcall(func)
         }
     }
-    fn call_special_form(&mut self, func: &mut RlispSpecialForm) -> Result<Object>;
-    fn call_rust_func(&mut self, func: &mut RlispBuiltinFunc, n_args: usize) -> Result<Object>;
+    fn call_special_form(&mut self, func: &mut RlispSpecialForm) -> Object;
+    fn call_rust_func(&mut self, func: &mut RlispBuiltinFunc, n_args: usize) -> Object;
     // These methods are left up to the implementor because
     // `RlispBuiltinFunc`s take an &mut lisp::Lisp, which is not the
     // same as taking an &mut Self
@@ -118,47 +132,69 @@ pub trait Evaluator
     fn funcall_after_check(
         &mut self,
         func: &mut RlispFunc,
-        arglist: &ConsCell,
+        arglist: Option<&ConsCell>,
         n_args: usize,
-    ) -> Result<Object> {
+    ) -> Object {
         match func.body {
             FunctionBody::LispFn(ref funcb) => {
-                self.get_args_for_lisp_func(arglist, n_args)?;
+                if let Some(arglist) = arglist {
+                    bubble!(self.get_args_for_lisp_func(arglist, n_args));
+                }
                 let mut ret = Object::nil();
                 for line in funcb {
-                    ret = self.evaluate(*line)?;
+                    ret = self.evaluate(*line);
                 }
-                self.pop_args_from_lisp_func(arglist)?;
-                Ok(ret)
+                if let Some(arglist) = arglist {
+                    bubble!(self.pop_args_from_lisp_func(arglist));
+                }
+                ret
             }
             FunctionBody::RustFn(ref mut funcb) => self.call_rust_func((*funcb).as_mut(), n_args),
             FunctionBody::SpecialForm(_) => unreachable!(),
         }
     }
-    fn funcall_unchecked(&mut self, func: &mut RlispFunc, n_args: usize) -> Result<Object> {
+    fn funcall_unchecked(&mut self, func: &mut RlispFunc, n_args: usize) -> Object {
         warn!("Calling a function without checking args!");
         if let FunctionBody::RustFn(ref mut funcb) = func.body {
             self.call_rust_func((*funcb).as_mut(), n_args)
         } else {
-            Err(ErrorKind::RequiresArglist.into())
+            let e: Error = ErrorKind::RequiresArglist.into();
+            let e: RlispError = e.into();
+            self.alloc(e)
         }
     }
-    fn funcall(&mut self, func: &mut RlispFunc) -> Result<Object> {
+    fn funcall(&mut self, func: &mut RlispFunc) -> Object {
         debug!("calling function {:?}", func);
-        let n_args = unsafe { self.pop()?.into_usize_unchecked() };
+        let n_args = pop_bubble!(self);
+        let n_args: usize = unsafe { n_args.into_unchecked() };
         debug!("was passed {} args", n_args);
         if let Some(arglist) = func.arglist {
-            let arglist = arglist.into_cons_or_error()?;
-            if self.arglist_compat(arglist, n_args)? {
-                debug!("#{} is compatible with the arglist {}", n_args, arglist);
-                self.funcall_after_check(func, arglist, n_args)
+            if let Some(arglist) = arglist.maybe_into() {
+                if try_rlisp_err!(self :
+                                      self.arglist_compat(arglist, n_args))
+                {
+                    debug!("#{} is compatible with the arglist {}", n_args, arglist);
+                    self.funcall_after_check(func, Some(arglist), n_args)
+                } else {
+                    debug!(
+                        "#{} is not compatible with the arglist {:?}",
+                        n_args, arglist
+                    );
+                    let (min_args, max_args) = try_rlisp_err!(self :
+                                           self.acceptable_range(arglist));
+                    let e: Error = ErrorKind::WrongArgsCount(n_args, min_args, max_args).into();
+                    let e: RlispError = e.into();
+                    self.alloc(e)
+                }
             } else {
-                debug!(
-                    "#{} is not compatible with the arglist {:?}",
-                    n_args, arglist
-                );
-                let (min_args, max_args) = self.acceptable_range(arglist)?;
-                Err(ErrorKind::WrongArgsCount(n_args, min_args, max_args).into())
+                debug_assert!(arglist == Object::nil());
+                if n_args == 0 {
+                    self.funcall_after_check(func, None, n_args)
+                } else {
+                    let e: Error = ErrorKind::WrongArgsCount(n_args, 0, Some(0)).into();
+                    let e: RlispError = e.into();
+                    self.alloc(e)
+                }
             }
         } else {
             self.funcall_unchecked(func, n_args)
@@ -207,7 +243,7 @@ pub trait Evaluator
         Ok((min_args, max_args))
     }
 
-    fn get_args_for_lisp_func(&mut self, arglist: &ConsCell, n_args: usize) -> Result<()> {
+    fn get_args_for_lisp_func(&mut self, arglist: &ConsCell, n_args: usize) -> Object {
         use types::function::ArgType;
         debug!("getting arglist {}", arglist);
         // iterate through an arglist, pop()ing off the stack for each
@@ -225,18 +261,18 @@ pub trait Evaluator
                     debug!("switching to &rest args");
                     arg_type = ArgType::Rest;
                 } else {
-                    let sym = sym.into_symbol_mut_or_error()?;
+                    let sym = into_type_or_error!(self : sym => &mut Symbol);
                     debug!("trying to get arg for symbol {:?}", sym);
                     match arg_type {
                         ArgType::Mandatory => {
-                            let arg = self.pop()?;
+                            let arg = pop_bubble!(self);
                             debug!("get_args_for_lisp_func(): popped the arg {}", arg);
                             sym.push(arg);
                             consumed += 1;
                         }
                         ArgType::Optional => {
                             if consumed < n_args {
-                                let arg = self.pop()?;
+                                let arg = pop_bubble!(self);
                                 debug!("get_args_for_lisp_func(): popped the arg {}", arg);
                                 sym.push(arg);
                                 consumed += 1;
@@ -248,13 +284,13 @@ pub trait Evaluator
                             let mut head = Object::nil();
                             while consumed < n_args {
                                 consumed += 1;
-                                let arg = self.pop()?;
+                                let arg = pop_bubble!(self);
                                 debug!("get_args_for_lisp_func(): popped the arg {}", arg);
                                 let conscell = ConsCell::new(arg, head);
                                 head = self.alloc(conscell);
                             }
                             sym.push(if head != Object::nil() {
-                                self.list_reverse(head.into_cons_or_error()?)
+                                self.list_reverse(unsafe { head.into_unchecked() })
                             } else {
                                 head
                             });
@@ -262,14 +298,16 @@ pub trait Evaluator
                     }
                 }
             } else if let ConsIteratorResult::Final(Some(_)) = res {
-                return Err(ErrorKind::ImproperList.into());
+                let e: Error = ErrorKind::ImproperList.into();
+                let e: RlispError = e.into();
+                return self.alloc(e);
             } else {
                 break;
             }
         }
-        Ok(())
+        Object::nil()
     }
-    fn pop_args_from_lisp_func(&mut self, arglist: &ConsCell) -> Result<()> {
+    fn pop_args_from_lisp_func(&mut self, arglist: &ConsCell) -> Object {
         // This method is called after evaluating a LispFn to unbind
         // the args
         debug!("cleaning up after arglist {:?}", arglist);
@@ -278,28 +316,25 @@ pub trait Evaluator
             let res = iter.improper_next();
             if let ConsIteratorResult::More(sym) = res {
                 if (sym != self.intern("&optional")) && (sym != self.intern("&rest")) {
-                    if let Some(sym) = sym.into_symbol_mut() {
-                        sym.pop();
-                    } else {
-                        return Err(ErrorKind::WrongType(RlispType::Sym, sym.what_type()).into());
-                    }
+                    let sym = into_type_or_error!(self : sym => &mut Symbol);
+                    sym.pop();
                 }
             } else if let ConsIteratorResult::Final(Some(_)) = res {
-                return Err(ErrorKind::ImproperList.into());
+                return self.alloc(RlispError::improper_list());
             } else {
                 break;
             }
         }
-        Ok(())
+        Object::nil()
     }
 }
 
 impl Evaluator for lisp::Lisp {
-    fn call_rust_func(&mut self, func: &mut RlispBuiltinFunc, n_args: usize) -> Result<Object> {
+    fn call_rust_func(&mut self, func: &mut RlispBuiltinFunc, n_args: usize) -> Object {
         debug!("calling a builtin function");
         func(self, n_args)
     }
-    fn call_special_form(&mut self, func: &mut RlispSpecialForm) -> Result<Object> {
+    fn call_special_form(&mut self, func: &mut RlispSpecialForm) -> Object {
         debug!("calling a special form");
         func(self)
     }

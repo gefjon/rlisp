@@ -6,6 +6,7 @@ enclosed in the trait ListOps. `ConsCell`s can also be turned into a
 pseudo-Iterator using list::iter(ConsCell).
  */
 use types::*;
+use types::conversions::*;
 use lisp;
 use std::iter::{IntoIterator, Iterator};
 
@@ -40,7 +41,9 @@ pub trait ListOps: lisp::allocate::AllocObject {
         *list = self.alloc(ConsCell::new(new_head, *list));
     }
     fn list_pop(&mut self, list: &mut Object) -> Object {
-        if let Some(&ConsCell { car, cdr, .. }) = list.into_cons() {
+        if let Some(&ConsCell { car, cdr, .. }) =
+            <Object as MaybeInto<&ConsCell>>::maybe_into(*list)
+        {
             *list = cdr;
             car
         } else {
