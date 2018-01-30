@@ -2,7 +2,6 @@ use result::*;
 use lisp::Lisp;
 use types::*;
 use std::iter::{Iterator, Peekable};
-use std::default::Default;
 use std::convert;
 
 // stdio contains the REPL which reads from Stdin and prints to Stdout

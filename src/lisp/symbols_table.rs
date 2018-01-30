@@ -21,11 +21,11 @@ pub trait Symbols {
         })
     }
     fn error_name(&mut self, err: &RlispErrorKind) -> Object {
-        self.intern(match err {
-            &RlispErrorKind::WrongType { .. } => "wrong-type-error",
-            &RlispErrorKind::BadArgsCount { .. } => "wrong-arg-count-error",
-            &RlispErrorKind::ImproperList => "improper-list-error",
-            &RlispErrorKind::RustError(_) => "internal-error",
+        self.intern(match *err {
+            RlispErrorKind::WrongType { .. } => "wrong-type-error",
+            RlispErrorKind::BadArgsCount { .. } => "wrong-arg-count-error",
+            RlispErrorKind::ImproperList => "improper-list-error",
+            RlispErrorKind::RustError(_) => "internal-error",
         })
     }
 }

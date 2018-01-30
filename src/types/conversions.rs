@@ -7,11 +7,7 @@ pub trait MaybeFrom<T>: Sized {
 pub trait FromObject: MaybeFrom<Object> {
     fn rlisp_type() -> RlispType;
     fn is_type(obj: Object) -> bool {
-        if let Some(_) = Self::maybe_from(obj) {
-            true
-        } else {
-            false
-        }
+        Self::maybe_from(obj).is_some()
     }
 }
 

@@ -23,7 +23,7 @@ impl<R: convert::AsMut<Lisp>> Repl<R, Lisp> for VecRepl<R> {
         output: &mut Self::Output,
         _error: &mut Self::Error,
     ) -> Result<()> {
-        let mut iter = input.iter().map(|n| *n).peekable();
+        let mut iter = input.iter().cloned().peekable();
 
         loop {
             let result = <Lisp as Rep>::rep(self.lisp.as_mut(), &mut iter);

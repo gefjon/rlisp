@@ -4,8 +4,6 @@ use std::io::prelude::*;
 use super::{Rep, Repl};
 use lisp::Lisp;
 use std::iter::Iterator;
-use std::boxed;
-use std::default::Default;
 use std::convert;
 
 // This is the struct that bin/repl.rs

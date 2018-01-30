@@ -252,7 +252,7 @@ pub fn make_builtins() -> RlispBuiltins {
                 }
             } else if !objects.nilp() {
                 let e: RlispError = RlispError::wrong_type(l.type_name(RlispType::Cons),
-                                                      l.type_name(objects.what_type())).into();
+                                                      l.type_name(objects.what_type()));
 
                 return l.alloc(e);
             }
@@ -265,5 +265,6 @@ pub fn builtin_vars() -> RlispBuiltinVars {
     builtin_vars! {
         "*pi*" = ::std::f64::consts::PI,
         "*e*" = ::std::f64::consts::E,
+        "*infinity*" = ::std::f64::INFINITY,
     }
 }

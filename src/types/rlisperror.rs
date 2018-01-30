@@ -72,11 +72,11 @@ impl RlispErrorKind {
 
 impl fmt::Display for RlispErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &RlispErrorKind::WrongType { wanted, found } => {
+        match *self {
+            RlispErrorKind::WrongType { wanted, found } => {
                 write!(f, "expected type {} but found type {}", wanted, found)
             }
-            &RlispErrorKind::BadArgsCount { min, max, found } => {
+            RlispErrorKind::BadArgsCount { min, max, found } => {
                 if max == Object::nil() {
                     write!(f, "wanted at least {} args but found only {}", min, found)
                 } else {
@@ -87,10 +87,10 @@ impl fmt::Display for RlispErrorKind {
                     )
                 }
             }
-            &RlispErrorKind::ImproperList => {
+            RlispErrorKind::ImproperList => {
                 write!(f, "found an improper list where a proper one was expected")
             }
-            &RlispErrorKind::RustError(ref e) => write!(f, "INTERNAL: {}", e),
+            RlispErrorKind::RustError(ref e) => write!(f, "INTERNAL: {}", e),
         }
     }
 }
