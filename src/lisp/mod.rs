@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::default::Default;
 use types::*;
 use types::conversions::*;
+use types::into_object::*;
 use builtins;
 use std::convert;
 
@@ -127,6 +128,15 @@ impl Lisp {
             }
         }
     }
+    fn source_builtin_vars(&mut self, mut builtin_vars: builtins::RlispBuiltinVars) {
+        for (name, val) in builtin_vars.drain(..) {
+            let name = self.intern(name);
+            let val = self.convert_into_object(val);
+            unsafe {
+                <Object as IntoUnchecked<&mut Symbol>>::into_unchecked(name).set(val);
+            }
+        }
+    }
 }
 
 impl Default for Lisp {
@@ -139,6 +149,7 @@ impl Default for Lisp {
             alloced_objects: Vec::new(),
             gc_threshold: 16,
         };
+        me.source_builtin_vars(builtins::builtin_vars());
         me.source_special_forms(builtins::make_special_forms());
         me.source_builtins(builtins::make_builtins());
         me.source_builtins(::math::math_builtins::make_builtins());

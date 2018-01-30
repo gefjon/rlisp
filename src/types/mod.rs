@@ -34,6 +34,8 @@ pub use self::function::RlispFunc;
 pub mod conversions;
 use self::conversions::*;
 
+pub mod into_object;
+
 #[derive(Copy, Clone)]
 pub enum Object {
     Cons(*const ConsCell),

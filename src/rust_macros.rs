@@ -283,3 +283,14 @@ macro_rules! special_forms {
         v
     }};
 }
+
+#[macro_export]
+macro_rules! builtin_vars {
+    (
+        $($name:tt = $val:expr),* $(,)*
+    ) => {{
+        let mut v: $crate::builtins::RlispBuiltinVars = Vec::new();
+        $(v.push((String::from($name), $crate::types::into_object::IntoObject::from($val)));)*;
+        v
+    }};
+}

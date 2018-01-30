@@ -1,6 +1,7 @@
 use lisp::symbols_table::Symbols;
 use result::*;
 use types::*;
+use types::into_object::*;
 use lisp;
 use std::boxed::Box;
 use lisp::allocate::AllocObject;
@@ -20,6 +21,7 @@ pub type Name = String;
 pub type RlispBuiltinTuple = (Name, Arglist, Box<RlispBuiltinFunc>);
 pub type RlispSpecialForms = Vec<(Name, Arglist, Box<RlispSpecialForm>)>;
 pub type RlispBuiltins = Vec<RlispBuiltinTuple>;
+pub type RlispBuiltinVars = Vec<(Name, IntoObject)>;
 
 pub fn make_special_forms() -> RlispSpecialForms {
     use evaluator::Evaluator;
@@ -218,5 +220,12 @@ pub fn make_builtins() -> RlispBuiltins {
             }
             Object::from(true)
         },
+    }
+}
+
+pub fn builtin_vars() -> RlispBuiltinVars {
+    builtin_vars! {
+        "*pi*" = ::std::f64::consts::PI,
+        "*e*" = ::std::f64::consts::E,
     }
 }
