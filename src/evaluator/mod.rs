@@ -34,7 +34,7 @@ pub trait Evaluator
         };
         self.gc_maybe_pass();
         debug!("{} evaluated to {}", input, res);
-        let _popped = pop_bubble!(self);
+        let _popped = self.pop();
         debug!(
             "evaluate(): popped {} from the stack as we have finished evaluating it",
             _popped
@@ -62,6 +62,7 @@ pub trait Evaluator
         let func = into_type_or_error!(self : car => &mut RlispFunc);
 
         if let FunctionBody::SpecialForm(ref mut func) = func.body {
+            debug!("eval_list(): {} is a special form", car);
             let num_args = if let Some(cons) = cdr.maybe_into() {
                 let mut iter = list::iter(unsafe { self.list_reverse(cons).into_unchecked() });
                 let mut num_args: usize = 0;

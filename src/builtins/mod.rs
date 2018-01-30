@@ -180,6 +180,44 @@ pub fn make_special_forms() -> RlispSpecialForms {
                 val
             }
         },
+        "catch-error" (statement &rest handlers) -> {
+            let n_args: usize = unsafe { pop_bubble!(l).into_unchecked() };
+            info!("catch-error: called catch-error");
+            let statement = pop_bubble!(l);
+
+            let mut handlers = Vec::with_capacity(n_args - 1);
+            for _ in 0..(n_args - 1) {
+                let arg = pop_bubble!(l);
+                handlers.push(arg);
+            }
+
+            for handler in &handlers {
+                info!("catch-error: with a handler {}", handler);
+            }
+
+            let res = l.evaluate(statement);
+
+            info!("catch-error: {} evaluated to {}", statement, res);
+            if let Some(e) = <Object as MaybeInto<&RlispError>>::maybe_into(res) {
+                info!("catch-error: res is the error {}", e);
+                let e = &e.error;
+                info!("catch-error: e.error = {}", e);
+                let e = l.error_name(e);
+                info!("catch-error: the error is named {}", e);
+                for handler in handlers {
+                    let &ConsCell { car, cdr, .. } =
+                        into_type_or_error!(l : handler => &ConsCell);
+                    if (car == e) || (car == Object::t()) {
+                        info!("catch-error: handler with car {} matched", car);
+                        let &ConsCell { car, .. } =
+                            into_type_or_error!(l : cdr => &ConsCell);
+                        info!("will eval and return {}", car);
+                        return l.evaluate(car);
+                    }
+                }
+            }
+            res
+        },
     }
 }
 

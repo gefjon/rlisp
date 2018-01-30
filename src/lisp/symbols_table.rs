@@ -1,4 +1,5 @@
 use types::*;
+use types::rlisperror::RlispErrorKind;
 use lisp::Lisp;
 use std::boxed::Box;
 
@@ -17,6 +18,14 @@ pub trait Symbols {
             RlispType::Error => "error",
             RlispType::Integer => "integer",
             RlispType::NatNum => "natnum",
+        })
+    }
+    fn error_name(&mut self, err: &RlispErrorKind) -> Object {
+        self.intern(match err {
+            &RlispErrorKind::WrongType { .. } => "wrong-type-error",
+            &RlispErrorKind::BadArgsCount { .. } => "wrong-arg-count-error",
+            &RlispErrorKind::ImproperList => "improper-list-error",
+            &RlispErrorKind::RustError(_) => "internal-error",
         })
     }
 }
