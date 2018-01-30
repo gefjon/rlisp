@@ -44,7 +44,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
                     return l.evaluate(cdrcar);
                 }
             }
-            Object::nil()
+            false.into()
         },
         "let" (bindings &rest body) -> {
             let n_args: usize = unsafe { pop_bubble!(l).into_unchecked() };
@@ -237,9 +237,9 @@ pub fn make_builtins() -> RlispBuiltins {
                     count += 1;
                 }
                 println!();
-                Object::from(count)
+                count.into()
             } else {
-                Object::nil()
+                false.into()
             }
         },
         "eq" (first &rest objects) -> {
@@ -247,7 +247,7 @@ pub fn make_builtins() -> RlispBuiltins {
                 #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
                 for el in cons.into_iter() {
                     if !(first == el) {
-                        return Object::nil();
+                        return false.into();
                     }
                 }
             } else if !objects.nilp() {
@@ -256,7 +256,7 @@ pub fn make_builtins() -> RlispBuiltins {
 
                 return l.alloc(e);
             }
-            Object::from(true)
+            true.into()
         },
     }
 }

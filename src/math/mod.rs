@@ -11,7 +11,7 @@ pub mod math_builtins {
                 let first = into_type_or_error!(l : first => f64);
 
                 if nums == Object::nil() {
-                    Object::from(true)
+                    true.into()
                 } else {
                     let nums = into_type_or_error!(l : nums => &ConsCell);
 
@@ -20,17 +20,17 @@ pub mod math_builtins {
                         let el = into_type_or_error!(l : el => f64);
 
                         if first != el {
-                            return Object::nil();
+                            return false.into();
                         }
                     }
 
-                    Object::from(true)
+                    true.into()
                 }
             },
 
             "*" (&rest nums) -> {
                 if nums == Object::nil() {
-                    Object::from(1.0)
+                    1.0.into()
                 } else {
                     let mut result = 1.0;
 
@@ -42,13 +42,13 @@ pub mod math_builtins {
                         result *= el;
                     }
 
-                    Object::from(result)
+                    result.into()
                 }
             },
 
             "+" (&rest nums) -> {
                 if nums == Object::nil() {
-                    Object::from(0.0)
+                    0.0.into()
                 } else {
                     let mut result = 0.0;
 
@@ -58,7 +58,7 @@ pub mod math_builtins {
                         let el = into_type_or_error!(l : el => f64);
                         result += el;
                     }
-                    Object::from(result)
+                    result.into()
                 }
             },
 
@@ -74,7 +74,7 @@ pub mod math_builtins {
                         let el = into_type_or_error!(l : el => f64);
                         result -= el;
                     }
-                    Object::from(result)
+                    result.into()
                 }
             },
 
@@ -90,33 +90,33 @@ pub mod math_builtins {
                         let el = into_type_or_error!(l : el => f64);
                         result /= el;
                     }
-                    Object::from(result)
+                    result.into()
                 }
             },
             "<" (lesser greater) -> {
                 let lesser = into_type_or_error!(l : lesser => f64);
                 let greater = into_type_or_error!(l : greater => f64);
-                Object::from(lesser < greater)
+                (lesser < greater).into()
             },
             "<=" (lesser greater) -> {
                 let lesser = into_type_or_error!(l : lesser => f64);
                 let greater = into_type_or_error!(l : greater => f64);
-                Object::from(lesser <= greater)
+                (lesser <= greater).into()
             },
             ">" (greater lesser) -> {
                 let lesser = into_type_or_error!(l : lesser => f64);
                 let greater = into_type_or_error!(l : greater => f64);
-                Object::from(greater > lesser)
+                (greater > lesser).into()
             },
             ">=" (greater lesser) -> {
                 let lesser = into_type_or_error!(l : lesser => f64);
                 let greater = into_type_or_error!(l : greater => f64);
-                Object::from(greater >= lesser)
+                (greater >= lesser).into()
             },
             "rem" (num divisor) -> {
                 let num = into_type_or_error!(l : num => f64);
                 let divisor = into_type_or_error!(l : divisor => f64);
-                Object::from(num % divisor)
+                (num % divisor).into()
             },
             "mod" (num modulus) -> {
                 let mut num = into_type_or_error!(l : num => f64);
@@ -124,44 +124,44 @@ pub mod math_builtins {
                 if num < 0.0 {
                     num *= -1.0;
                 }
-                Object::from(num % modulus)
+                (num % modulus).into()
             },
             "trunc" (num) -> {
                 let num = into_type_or_error!(l : num => f64);
                 let num = num.trunc();
                 debug_assert!(integerp(num));
-                Object::from(num)
+                num.into()
             },
             "floor" (num) -> {
                 let num = into_type_or_error!(l : num => f64);
                 let num = num.floor();
                 debug_assert!(integerp(num));
-                Object::from(num)
+                num.into()
             },
             "ceil" (num) -> {
                 let num = into_type_or_error!(l : num => f64);
                 let num = num.ceil();
                 debug_assert!(integerp(num));
-                Object::from(num)
+                num.into()
             },
             "round" (num) -> {
                 let num = into_type_or_error!(l : num => f64);
                 let num = num.round();
                 debug_assert!(integerp(num));
-                Object::from(num)
+                num.into()
             },
             "integerp" (num) -> {
                 if let Some(num) = f64::maybe_from(num) {
-                    Object::from(integerp(num))
+                    integerp(num).into()
                 } else {
-                    Object::nil()
+                    false.into()
                 }
             },
             "natnump" (num) -> {
                 if let Some(num) = f64::maybe_from(num) {
-                    Object::from(natnump(num))
+                    natnump(num).into()
                 } else {
-                    Object::nil()
+                    false.into()
                 }
             },
         }
