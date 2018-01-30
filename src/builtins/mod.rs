@@ -218,6 +218,30 @@ pub fn make_special_forms() -> RlispSpecialForms {
             }
             res
         },
+        "lambda" (args &rest body) -> {
+            let n_args: usize = unsafe { pop_bubble!(l).into_unchecked() };
+            if n_args < 2 {
+                let e: Error = ErrorKind::WrongArgsCount(n_args, 2, None).into();
+                let e: RlispError = e.into();
+                l.alloc(e)
+            } else {
+                let arglist = pop_bubble!(l);
+                let mut body = Vec::with_capacity(n_args - 1);
+                for _ in 0..(n_args - 1) {
+                    body.push(pop_bubble!(l));
+                }
+                if (!arglist.nilp()) && (!<&ConsCell as FromObject>::is_type(arglist)) {
+                    let e = RlispError::wrong_type(l.type_name(RlispType::Cons),
+                                                   l.type_name(arglist.what_type()));
+                    l.alloc(e)
+                } else {
+                    l.alloc(
+                        RlispFunc::from_body(body)
+                            .with_arglist(arglist)
+                    )
+                }
+            }
+        },
     }
 }
 
