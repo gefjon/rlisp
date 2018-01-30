@@ -1,0 +1,32 @@
+;; -*- mode: Lisp -*-
+
+(defun 1+ (n)
+  (+ n 1))
+
+(defun 1- (n)
+  (- n 1))
+
+(defun square (n)
+  (* n n))
+
+(defvar *n* 5)
+
+(print "*n* is currently " *n*)
+
+(setq *n* (1+ *n*))
+
+(print "*n* is currently " *n*)
+
+(setq *n* (square *n*))
+
+(print "*n* is currently " *n*)
+
+(let ((*n* (1- *n*)))
+  (print "within a local binding, *n* is currently " *n*)
+  (setq *n* (/ *n* 2))
+  (print "*n* is currently " *n*)
+  (print "leaving local binding"))
+
+(print "*n* is currently " *n*)
+
+t

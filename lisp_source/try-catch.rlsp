@@ -1,0 +1,6 @@
+(catch-error (undefined-function undefined-var)
+             (wrong-type-error (print 'wrong-type-error))
+             (wrong-arg-count-error (print 'wrong-arg-count-error))
+             (improper-list-error (print 'improper-list-error))
+             (internal-error (print 'iternal-error))
+             (t (print t)))
