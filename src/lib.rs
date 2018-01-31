@@ -1,3 +1,6 @@
+#![feature(allocator_api)]
+#![feature(alloc)]
+#![feature(unique)]
 #![feature(trace_macros)]
 #![feature(log_syntax)]
 #![recursion_limit = "1024"]
@@ -8,6 +11,8 @@ extern crate error_chain;
 #[macro_use]
 extern crate log;
 
+extern crate alloc;
+
 mod result {
     error_chain! {
         foreign_links {
@@ -16,6 +21,7 @@ mod result {
             ParseFloat(::std::num::ParseFloatError);
             ParseInt(::std::num::ParseIntError);
             Utf8(::std::string::FromUtf8Error);
+            StrUtf8(::std::str::Utf8Error);
         }
         errors {
             UnclosedList {

@@ -45,37 +45,12 @@ pub mod stack_storage {
     }
 }
 
-pub mod allocate {
-    use types::*;
-    use std::boxed::Box;
-    use lisp;
-    pub trait AllocObject {
-        fn alloc<T>(&mut self, to_alloc: T) -> Object
-        where
-            Object: ::std::convert::From<*mut T>,
-        {
-            let boxed = Box::new(to_alloc);
-            let obj = Object::from(Box::into_raw(boxed));
-            self.objects_mut().push(obj);
-            obj
-        }
-        fn objects(&self) -> &Vec<Object>;
-        fn objects_mut(&mut self) -> &mut Vec<Object>;
-    }
-    impl AllocObject for lisp::Lisp {
-        fn objects(&self) -> &Vec<Object> {
-            &self.alloced_objects
-        }
-        fn objects_mut(&mut self) -> &mut Vec<Object> {
-            &mut self.alloced_objects
-        }
-    }
-}
+pub mod allocate;
 
 const INITIAL_MACRO_CHARS: &[(u8, &str)] = &[(b'\'', "quote")];
 
 pub struct Lisp {
-    pub symbols: HashMap<String, *const Symbol>,
+    pub symbols: HashMap<String, Object>,
     macro_chars: HashMap<u8, &'static str>,
     pub stack: Vec<Object>,
     pub current_gc_mark: ::gc::GcMark,

@@ -38,7 +38,7 @@ pub trait GarbageCollector
         for obj in old_objs.drain(..) {
             if obj.should_dealloc(self.current_marking()) {
                 debug!("{} is not marked, deallocating it", obj);
-                unsafe { obj.deallocate() }
+                unsafe { self.dealloc(obj) }
             } else {
                 self.objects_mut().push(obj);
             }
@@ -74,9 +74,7 @@ impl GarbageCollector for lisp::Lisp {
     }
     fn mark_symbols(&mut self) {
         for sym in self.symbols.values() {
-            unsafe {
-                (*(*sym as *mut Symbol)).gc_mark(self.current_marking());
-            }
+            sym.gc_mark(self.current_marking());
         }
     }
 }

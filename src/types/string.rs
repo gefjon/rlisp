@@ -1,10 +1,11 @@
 use std::convert;
-use std::fmt;
+use std::{fmt, slice, str};
 use gc::{GarbageCollected, GcMark};
 
 pub struct RlispString {
     pub gc_marking: GcMark,
-    pub val: String,
+    pub len: usize,
+    val: u8,
 }
 
 impl GarbageCollected for RlispString {
@@ -25,18 +26,21 @@ impl fmt::Display for RlispString {
         // string. That's not for any particular reason, and if it
         // makes sense in the future the quotes could move here and
         // Object could just straight-up format this value.
-        write!(f, "{}", self.val)
+        write!(f, "{}", <Self as AsRef<str>>::as_ref(self))
     }
 }
 
 impl fmt::Debug for RlispString {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "\"{}\"", self.val)
+        write!(f, "\"{}\"", <Self as AsRef<str>>::as_ref(self))
     }
 }
 
-impl convert::From<String> for RlispString {
-    fn from(val: String) -> Self {
-        Self { gc_marking: 0, val }
+impl convert::AsRef<str> for RlispString {
+    fn as_ref(&self) -> &str {
+        unsafe {
+            let slice = slice::from_raw_parts((&self.val) as _, self.len);
+            str::from_utf8_unchecked(slice)
+        }
     }
 }

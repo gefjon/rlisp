@@ -201,7 +201,7 @@ pub trait Reader
             while let Some(byte) = iter.next() {
                 match byte {
                     _ if byte == open => {
-                        return Ok(self.alloc(RlispString::from(String::from_utf8(string)?)));
+                        return Ok(self.alloc_string(::std::str::from_utf8(&string)?));
                     }
                     b'\\' => {
                         if let Some(escape) = iter.next() {

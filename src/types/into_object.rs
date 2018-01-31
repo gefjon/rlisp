@@ -6,8 +6,7 @@ use lisp;
 pub enum IntoObject {
     Cons(ConsCell),
     Num(f64),
-    Sym(Symbol),
-    String(RlispString),
+    String(&'static str),
     Function(RlispFunc),
     Error(RlispError),
     Bool(bool),
@@ -18,8 +17,7 @@ pub trait ConvertIntoObject: AllocObject {
         match i {
             IntoObject::Cons(c) => self.alloc(c),
             IntoObject::Num(n) => Object::from(n),
-            IntoObject::Sym(s) => self.alloc(s),
-            IntoObject::String(s) => self.alloc(s),
+            IntoObject::String(s) => self.alloc_string(s),
             IntoObject::Function(f) => self.alloc(f),
             IntoObject::Error(e) => self.alloc(e),
             IntoObject::Bool(b) => Object::from(b),
@@ -41,14 +39,8 @@ impl convert::From<f64> for IntoObject {
     }
 }
 
-impl convert::From<Symbol> for IntoObject {
-    fn from(s: Symbol) -> Self {
-        IntoObject::Sym(s)
-    }
-}
-
-impl convert::From<RlispString> for IntoObject {
-    fn from(s: RlispString) -> Self {
+impl convert::From<&'static str> for IntoObject {
+    fn from(s: &'static str) -> Self {
         IntoObject::String(s)
     }
 }

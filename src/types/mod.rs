@@ -141,39 +141,6 @@ impl Object {
             Object::Error(_) => RlispType::Error,
         }
     }
-    pub unsafe fn deallocate(self) {
-        // this should only ever be called by the garbage collector!
-        // potential future change: move from being a pub Object
-        // method to being a private function in gc
-
-        debug!("deallocating {:?}", self);
-        match self {
-            Object::Num(_) | Object::Bool(_) => debug!("deallocating {} is a no-op", self),
-            Object::Cons(c) => {
-                debug!("building a box from {:?}", c);
-                Box::from_raw(c as *mut ConsCell);
-                debug!("box built, will drop it");
-            }
-            Object::Sym(s) => {
-                debug!("building a box from {:?}", s);
-                Box::from_raw(s as *mut Symbol);
-                debug!("box built, will drop it");
-            }
-            Object::String(s) => {
-                debug!("building a box from {:?}", s);
-                Box::from_raw(s as *mut RlispString);
-                debug!("box built, will drop it");
-            }
-            Object::Function(f) => {
-                debug!("building a box from {:?}", f);
-                Box::from_raw(f as *mut RlispFunc);
-                debug!("box built, will drop it");
-            }
-            Object::Error(e) => {
-                Box::from_raw(e as *mut RlispFunc);
-            }
-        }
-    }
     pub fn gc_mark(self, marking: ::gc::GcMark) {
         // Object could probably implement gc::GarbageCollected, but
         // as of now it doesn't. Because of that, it instead has this
@@ -184,7 +151,7 @@ impl Object {
             Object::Num(_) | Object::Bool(_) => (),
             Object::Cons(c) => unsafe { (*(c as *mut ConsCell)).gc_mark(marking) },
             Object::Sym(s) => unsafe { (*(s as *mut Symbol)).gc_mark(marking) },
-            Object::String(s) => unsafe { (*(s as *mut RlispString)).gc_mark(marking) },
+            Object::String(s) => unsafe { (&mut *(s as *mut RlispString)).gc_mark(marking) },
             Object::Function(f) => unsafe { (*(f as *mut RlispFunc)).gc_mark(marking) },
             Object::Error(e) => unsafe { (*(e as *mut RlispError)).gc_mark(marking) },
         }
@@ -209,7 +176,7 @@ impl fmt::Display for Object {
             Object::Num(n) => write!(f, "{}", n),
             Object::Sym(s) => unsafe { write!(f, "{}", *s) },
             Object::Cons(c) => unsafe { write!(f, "{}", *c) },
-            Object::String(s) => unsafe { write!(f, "{}", *s) },
+            Object::String(s) => unsafe { write!(f, "{}", &*s) },
             Object::Function(func) => unsafe { write!(f, "{}", *func) },
             Object::Error(e) => unsafe { write!(f, "{}", *e) },
         }
@@ -224,7 +191,7 @@ impl fmt::Debug for Object {
             Object::Num(n) => write!(f, "{}", n),
             Object::Sym(s) => unsafe { write!(f, "{}", *s) },
             Object::Cons(c) => unsafe { write!(f, "{:?}", *c) },
-            Object::String(s) => unsafe { write!(f, "{:?}", *s) },
+            Object::String(s) => unsafe { write!(f, "{:?}", &*s) },
             Object::Function(func) => unsafe { write!(f, "{:?}", *func) },
             Object::Error(e) => unsafe { write!(f, "{}", *e) },
         }

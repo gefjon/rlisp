@@ -1,25 +1,18 @@
 use std::{convert, fmt, mem};
 use std::cmp::{Eq, PartialEq};
-use std::str::FromStr;
 use types::*;
 use gc::{GarbageCollected, GcMark};
-use std::boxed::Box;
 use std::default::Default;
+use std::{slice, str};
 
 pub struct Symbol {
-    pub name: String,
-    val: Binding,
     pub gc_marking: GcMark,
+    val: Binding,
+    name_len: usize,
+    name: u8,
 }
 
 impl Symbol {
-    pub fn from_string(sym: String) -> Self {
-        Symbol {
-            name: sym,
-            val: Binding::default(),
-            gc_marking: 0,
-        }
-    }
     pub fn push(&mut self, val: Object) {
         // called when creating a local binding
         self.val.push(val);
@@ -114,13 +107,6 @@ impl Default for Binding {
     }
 }
 
-impl FromStr for Symbol {
-    type Err = Error;
-    fn from_str(s: &str) -> Result<Self> {
-        Ok(Symbol::from_string(String::from(s)))
-    }
-}
-
 impl GarbageCollected for Symbol {
     fn my_marking(&self) -> &GcMark {
         &self.gc_marking
@@ -145,12 +131,26 @@ impl Eq for Symbol {}
 
 impl fmt::Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.name)
+        write!(f, "{}", <Self as convert::AsRef<str>>::as_ref(self))
     }
 }
 
 impl fmt::Debug for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "[ symbol {} -> {:?} ]", self.name, self.val)
+        write!(
+            f,
+            "[ symbol {} -> {:?} ]",
+            <Self as convert::AsRef<str>>::as_ref(self),
+            self.val
+        )
+    }
+}
+
+impl convert::AsRef<str> for Symbol {
+    fn as_ref(&self) -> &str {
+        unsafe {
+            let slice = slice::from_raw_parts((&self.name) as _, self.name_len);
+            str::from_utf8_unchecked(slice)
+        }
     }
 }
