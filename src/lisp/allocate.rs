@@ -1,3 +1,8 @@
+/*
+Honestly, I recommend that you not look in this module. It's scary,
+it's evil, it's very `unsafe`, and it's a mess.
+*/
+
 use std::heap::Heap;
 use alloc::allocator::{Alloc, Layout};
 use types::*;
@@ -9,6 +14,9 @@ pub trait AllocObject {
     where
         Object: ::std::convert::From<*mut T>,
     {
+        // Allocate a T, where T is one of `ConsCell`, `RlispError`,
+        // or `RlispFunc`. `RlispString` and `Symbol` should use the
+        // methods `alloc_string` and `alloc_sym`
         let pointer = Heap.alloc_one().unwrap().as_ptr();
         unsafe {
             ptr::write(pointer, to_alloc);
@@ -18,6 +26,7 @@ pub trait AllocObject {
         obj
     }
     unsafe fn dealloc(&mut self, to_dealloc: Object) {
+        // deallocate an object
         match to_dealloc {
             Object::Num(_) | Object::Bool(_) => debug!("deallocating {} is a no-op", to_dealloc),
             Object::Cons(c) => self.low_level_dealloc(c),
@@ -28,10 +37,16 @@ pub trait AllocObject {
         }
     }
     unsafe fn low_level_dealloc<T>(&mut self, to_dealloc: *const T) {
+        // This is called for types created by `alloc`, but the
+        // dynamically sized `Symbol` and `RlispString` have their own
+        // dealloc methods, `dealloc_sym` and `dealloc_string`.
         let ptr = Unique::new(to_dealloc as *mut T).unwrap();
         Heap.dealloc_one(ptr);
     }
     fn alloc_sym(&mut self, to_alloc: &str) -> Object {
+        // allocate a block of memory large enough to store the
+        // headers of a symbol plus all of the bytes of `to_alloc` and
+        // then initialize a symbol there
         use gc::GcMark;
         use types::symbol::Binding;
         let layout = Layout::from_size_align(
@@ -65,6 +80,8 @@ pub trait AllocObject {
     }
 
     unsafe fn dealloc_sym(&mut self, to_dealloc: *mut Symbol) {
+        // build a `Layout` for `to_dealloc` including its name
+        // contents, then deallocate it
         use gc::GcMark;
         use types::symbol::Binding;
         let len = *((to_dealloc as usize + mem::size_of::<GcMark>() + mem::size_of::<Binding>())
@@ -77,6 +94,9 @@ pub trait AllocObject {
         Heap.dealloc(to_dealloc as _, layout);
     }
     fn alloc_string(&mut self, to_alloc: &str) -> Object {
+        // allocate a block of memory large enough to store the
+        // headers of a string plus all of the bytes of `to_alloc` and
+        // then initialize a string there
         use gc::GcMark;
         let layout = Layout::from_size_align(
             mem::size_of::<GcMark>() + mem::size_of::<usize>()
@@ -105,6 +125,8 @@ pub trait AllocObject {
     }
 
     unsafe fn dealloc_string(&mut self, to_dealloc: *mut RlispString) {
+        // build a `Layout` for `to_dealloc` including its contents,
+        // then deallocate it
         use gc::GcMark;
         let len = *((to_dealloc as usize + mem::size_of::<GcMark>()) as *const usize);
         let layout = Layout::from_size_align(
