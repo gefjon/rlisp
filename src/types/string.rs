@@ -36,10 +36,10 @@ impl fmt::Debug for RlispString {
     }
 }
 
-impl ops::Index<usize> for RlispString {
+impl ops::Index<u32> for RlispString {
     type Output = u8;
-    fn index(&self, index: usize) -> &u8 {
-        &<Self as convert::AsRef<[u8]>>::as_ref(self)[index]
+    fn index(&self, index: u32) -> &u8 {
+        &<Self as convert::AsRef<[u8]>>::as_ref(self)[index as usize]
     }
 }
 

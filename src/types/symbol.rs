@@ -1,9 +1,8 @@
-use std::{convert, fmt, mem};
+use std::{convert, fmt, mem, ops, slice, str};
 use std::cmp::{Eq, PartialEq};
 use types::*;
 use gc::{GarbageCollected, GcMark};
 use std::default::Default;
-use std::{slice, str};
 
 pub struct Symbol {
     pub gc_marking: GcMark,
@@ -26,11 +25,18 @@ impl Symbol {
         self.val = Binding::from(val)
     }
     pub fn set(&mut self, val: Object) {
-        // called by `setf` and similar
+        // called by `setq` and similar
         self.val.set(val);
     }
     pub fn get(&self) -> Option<Object> {
         self.val.get()
+    }
+}
+
+impl ops::Index<u32> for Symbol {
+    type Output = u8;
+    fn index(&self, index: u32) -> &u8 {
+        &<Self as convert::AsRef<[u8]>>::as_ref(self)[index as usize]
     }
 }
 
@@ -39,7 +45,7 @@ pub struct Binding {
     // Bindings are a singly-linked list. Function calls, `let`, and
     // similar local bindings push to the lists and pop when their
     // scopes end. `defun`, `defvar`, etc. replace the entire list of
-    // Bindings. `setf` replaces the head of the list but leaves the
+    // Bindings. `setq` replaces the head of the list but leaves the
     // rest intact.
     bind: Option<Object>,
     prev: Option<Box<Binding>>,
@@ -152,5 +158,11 @@ impl convert::AsRef<str> for Symbol {
             let slice = slice::from_raw_parts((&self.name) as _, self.name_len);
             str::from_utf8_unchecked(slice)
         }
+    }
+}
+
+impl convert::AsRef<[u8]> for Symbol {
+    fn as_ref(&self) -> &[u8] {
+        unsafe { slice::from_raw_parts((&self.name) as _, self.name_len) }
     }
 }
