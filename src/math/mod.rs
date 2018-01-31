@@ -180,6 +180,6 @@ pub fn natnump(num: f64) -> bool {
         && (num >= f64::from(::std::u32::MIN))
 }
 
-pub fn oddp(num: isize) -> bool {
+pub fn oddp(num: i32) -> bool {
     (num % 2) != 0
 }

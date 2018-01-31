@@ -107,12 +107,10 @@ impl MaybeFrom<Object> for &'static RlispString {
     }
 }
 
-impl MaybeFrom<Object> for usize {
+impl MaybeFrom<Object> for u32 {
     fn maybe_from(obj: Object) -> Option<Self> {
         if let Object::Num(n) = obj {
-            if (::math::integerp(n)) && (n <= ::std::usize::MAX as _)
-                && (n >= ::std::usize::MIN as _)
-            {
+            if ::math::natnump(n) {
                 return Some(n as _);
             }
         }
@@ -120,18 +118,16 @@ impl MaybeFrom<Object> for usize {
     }
 }
 
-impl FromObject for usize {
+impl FromObject for u32 {
     fn rlisp_type() -> RlispType {
         RlispType::NatNum
     }
 }
 
-impl MaybeFrom<Object> for isize {
+impl MaybeFrom<Object> for i32 {
     fn maybe_from(obj: Object) -> Option<Self> {
         if let Object::Num(n) = obj {
-            if (::math::integerp(n)) && (n <= ::std::isize::MAX as _)
-                && (n >= ::std::isize::MIN as _)
-            {
+            if ::math::integerp(n) {
                 return Some(n as _);
             }
         }
@@ -139,7 +135,7 @@ impl MaybeFrom<Object> for isize {
     }
 }
 
-impl FromObject for isize {
+impl FromObject for i32 {
     fn rlisp_type() -> RlispType {
         RlispType::Integer
     }

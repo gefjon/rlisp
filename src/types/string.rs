@@ -1,5 +1,5 @@
 use std::convert;
-use std::{fmt, slice, str};
+use std::{fmt, ops, slice, str};
 use gc::{GarbageCollected, GcMark};
 
 pub struct RlispString {
@@ -36,11 +36,24 @@ impl fmt::Debug for RlispString {
     }
 }
 
+impl ops::Index<usize> for RlispString {
+    type Output = u8;
+    fn index(&self, index: usize) -> &u8 {
+        &<Self as convert::AsRef<[u8]>>::as_ref(self)[index]
+    }
+}
+
 impl convert::AsRef<str> for RlispString {
     fn as_ref(&self) -> &str {
         unsafe {
             let slice = slice::from_raw_parts((&self.val) as _, self.len);
             str::from_utf8_unchecked(slice)
         }
+    }
+}
+
+impl convert::AsRef<[u8]> for RlispString {
+    fn as_ref(&self) -> &[u8] {
+        unsafe { slice::from_raw_parts((&self.val) as _, self.len) }
     }
 }

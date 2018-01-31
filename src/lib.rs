@@ -56,7 +56,7 @@ mod result {
                 description("a type mismatch error"),
                 display("Expected type {:?}, found type {:?}", expected, got),
             }
-            WrongArgsCount(got: usize, min: usize, max: Option<usize>) {
+            WrongArgsCount(got: u32, min: u32, max: Option<u32>) {
                 description("wrong number of args passed to a function"),
                 display("got {} args, but wanted between {} and {:?}", got, min, max),
             }

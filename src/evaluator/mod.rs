@@ -65,7 +65,7 @@ pub trait Evaluator
             debug!("eval_list(): {} is a special form", car);
             let num_args = if let Some(cons) = cdr.maybe_into() {
                 let mut iter = list::iter(unsafe { self.list_reverse(cons).into_unchecked() });
-                let mut num_args: usize = 0;
+                let mut num_args: u32 = 0;
                 loop {
                     let res = iter.improper_next();
                     if let list::ConsIteratorResult::Final(Some(_)) = res {
@@ -91,7 +91,7 @@ pub trait Evaluator
         } else {
             let num_args = if let Some(cons) = cdr.maybe_into() {
                 let mut iter = list::iter(unsafe { self.list_reverse(cons).into_unchecked() });
-                let mut num_args: usize = 0;
+                let mut num_args: u32 = 0;
                 loop {
                     let res = iter.improper_next();
                     if let list::ConsIteratorResult::Final(Some(_)) = res {
@@ -118,11 +118,11 @@ pub trait Evaluator
         }
     }
     fn call_special_form(&mut self, func: &mut RlispSpecialForm) -> Object;
-    fn call_rust_func(&mut self, func: &mut RlispBuiltinFunc, n_args: usize) -> Object;
+    fn call_rust_func(&mut self, func: &mut RlispBuiltinFunc, n_args: u32) -> Object;
     // These methods are left up to the implementor because
     // `RlispBuiltinFunc`s take an &mut lisp::Lisp, which is not the
     // same as taking an &mut Self
-    fn arglist_compat(&mut self, arglist: &ConsCell, n_args: usize) -> Result<bool> {
+    fn arglist_compat(&mut self, arglist: &ConsCell, n_args: u32) -> Result<bool> {
         let (min_args, max_args) = self.acceptable_range(arglist)?;
         if let Some(ma) = max_args {
             Ok((n_args >= min_args) && (n_args <= ma))
@@ -134,7 +134,7 @@ pub trait Evaluator
         &mut self,
         func: &mut RlispFunc,
         arglist: Option<&ConsCell>,
-        n_args: usize,
+        n_args: u32,
     ) -> Object {
         match func.body {
             FunctionBody::LispFn(ref funcb) => {
@@ -154,7 +154,7 @@ pub trait Evaluator
             FunctionBody::SpecialForm(_) => unreachable!(),
         }
     }
-    fn funcall_unchecked(&mut self, func: &mut RlispFunc, n_args: usize) -> Object {
+    fn funcall_unchecked(&mut self, func: &mut RlispFunc, n_args: u32) -> Object {
         warn!("Calling a function without checking args!");
         if let FunctionBody::RustFn(ref mut funcb) = func.body {
             self.call_rust_func((*funcb).as_mut(), n_args)
@@ -167,7 +167,7 @@ pub trait Evaluator
     fn funcall(&mut self, func: &mut RlispFunc) -> Object {
         debug!("calling function {:?}", func);
         let n_args = pop_bubble!(self);
-        let n_args: usize = unsafe { n_args.into_unchecked() };
+        let n_args: u32 = unsafe { n_args.into_unchecked() };
         debug!("was passed {} args", n_args);
         if let Some(arglist) = func.arglist {
             if let Some(arglist) = arglist.maybe_into() {
@@ -202,12 +202,12 @@ pub trait Evaluator
         }
     }
 
-    fn acceptable_range(&mut self, arglist: &ConsCell) -> Result<(usize, Option<usize>)> {
+    fn acceptable_range(&mut self, arglist: &ConsCell) -> Result<(u32, Option<u32>)> {
         use types::function::ArgType;
         debug!("Checking acceptable range for arglist {}", arglist);
         let mut iter = list::iter(arglist);
-        let mut min_args: usize = 0;
-        let mut max_args: Option<usize> = Some(0);
+        let mut min_args: u32 = 0;
+        let mut max_args: Option<u32> = Some(0);
         let mut arg_type = ArgType::Mandatory;
         loop {
             let res = iter.improper_next();
@@ -244,7 +244,7 @@ pub trait Evaluator
         Ok((min_args, max_args))
     }
 
-    fn get_args_for_lisp_func(&mut self, arglist: &ConsCell, n_args: usize) -> Object {
+    fn get_args_for_lisp_func(&mut self, arglist: &ConsCell, n_args: u32) -> Object {
         use types::function::ArgType;
         debug!("getting arglist {}", arglist);
         // iterate through an arglist, pop()ing off the stack for each
@@ -331,7 +331,7 @@ pub trait Evaluator
 }
 
 impl Evaluator for lisp::Lisp {
-    fn call_rust_func(&mut self, func: &mut RlispBuiltinFunc, n_args: usize) -> Object {
+    fn call_rust_func(&mut self, func: &mut RlispBuiltinFunc, n_args: u32) -> Object {
         debug!("calling a builtin function");
         func(self, n_args)
     }

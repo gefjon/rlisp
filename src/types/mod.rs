@@ -284,19 +284,19 @@ impl convert::From<f64> for Object {
     }
 }
 
-impl convert::From<usize> for Object {
+impl convert::From<u32> for Object {
     // used for funcalls and such
-    fn from(num: usize) -> Self {
-        Object::from(num as f64)
+    fn from(num: u32) -> Self {
+        Object::from(f64::from(num))
     }
 }
 
-impl convert::From<isize> for Object {
+impl convert::From<i32> for Object {
     // this trait is kind of meaningless since all numbers in Rlisp
     // are currently f64s, but if the language ever gets an int type
     // for optimization, this may be useful.
-    fn from(num: isize) -> Self {
-        Object::from(num as f64)
+    fn from(num: i32) -> Self {
+        Object::from(f64::from(num))
     }
 }
 
