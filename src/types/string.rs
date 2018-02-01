@@ -43,6 +43,16 @@ impl ops::Index<u32> for RlispString {
     }
 }
 
+impl ops::Index<i32> for RlispString {
+    type Output = u8;
+    fn index(&self, mut index: i32) -> &u8 {
+        if index < 0 {
+            index += self.len as i32;
+        }
+        <Self as ops::Index<u32>>::index(self, index as u32)
+    }
+}
+
 impl convert::AsRef<str> for RlispString {
     fn as_ref(&self) -> &str {
         unsafe {

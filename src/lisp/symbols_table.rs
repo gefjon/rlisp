@@ -45,7 +45,16 @@ impl Symbols for Lisp {
         } else {
             if !self.symbols.contains_key(&sym) {
                 let new_symbol = self.alloc_sym(sym.as_ref());
-                let _ = self.symbols.insert(sym.clone(), new_symbol);
+                let _insert_res = self.symbols.insert(sym.clone(), new_symbol);
+                debug_assert!(_insert_res.is_none());
+                let sym = unsafe {
+                    <&mut Symbol as conversions::FromUnchecked<Object>>::from_unchecked(new_symbol)
+                };
+                if sym[0u32] == b':' {
+                    // symbols which start with `:` evaluate to
+                    // themselves by default
+                    sym.reset(new_symbol);
+                }
             }
             if let Some(symbol) = self.symbols.get(&sym) {
                 *symbol

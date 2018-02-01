@@ -40,6 +40,16 @@ impl ops::Index<u32> for Symbol {
     }
 }
 
+impl ops::Index<i32> for Symbol {
+    type Output = u8;
+    fn index(&self, mut index: i32) -> &u8 {
+        if index < 0 {
+            index += self.name_len as i32;
+        }
+        <Self as ops::Index<u32>>::index(self, index as u32)
+    }
+}
+
 #[derive(Debug)]
 pub struct Binding {
     // Bindings are a singly-linked list. Function calls, `let`, and
