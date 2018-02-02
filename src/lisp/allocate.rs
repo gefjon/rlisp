@@ -48,9 +48,8 @@ pub trait AllocObject {
         // headers of a symbol plus all of the bytes of `to_alloc` and
         // then initialize a symbol there
         use gc::GcMark;
-        use types::symbol::Binding;
         let layout = Layout::from_size_align(
-            mem::size_of::<GcMark>() + mem::size_of::<Binding>() + mem::size_of::<usize>()
+            mem::size_of::<GcMark>() + mem::size_of::<usize>()
                 + (mem::size_of::<u8>() * to_alloc.len()),
             mem::align_of::<Symbol>(),
         ).unwrap();
@@ -60,14 +59,9 @@ pub trait AllocObject {
             ptr::write(pointer as *mut GcMark, 0);
             ptr::write(
                 (pointer as usize + mem::size_of::<GcMark>()) as _,
-                Binding::default(),
-            );
-            ptr::write(
-                (pointer as usize + mem::size_of::<GcMark>() + mem::size_of::<Binding>()) as _,
                 to_alloc.len(),
             );
-            let string_head = pointer as usize + mem::size_of::<GcMark>()
-                + mem::size_of::<Binding>() + mem::size_of::<usize>();
+            let string_head = pointer as usize + mem::size_of::<GcMark>() + mem::size_of::<usize>();
             for (offset, byte) in to_alloc.bytes().enumerate() {
                 ptr::write(
                     (string_head + (offset * mem::size_of::<u8>())) as *mut u8,
@@ -83,12 +77,9 @@ pub trait AllocObject {
         // build a `Layout` for `to_dealloc` including its name
         // contents, then deallocate it
         use gc::GcMark;
-        use types::symbol::Binding;
-        let len = *((to_dealloc as usize + mem::size_of::<GcMark>() + mem::size_of::<Binding>())
-            as *const usize);
+        let len = *((to_dealloc as usize + mem::size_of::<GcMark>()) as *const usize);
         let layout = Layout::from_size_align(
-            mem::size_of::<GcMark>() + mem::size_of::<Binding>() + mem::size_of::<usize>()
-                + (mem::size_of::<u8>() * len),
+            mem::size_of::<GcMark>() + mem::size_of::<usize>() + (mem::size_of::<u8>() * len),
             mem::align_of::<Symbol>(),
         ).unwrap();
         Heap.dealloc(to_dealloc as _, layout);

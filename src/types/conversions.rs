@@ -97,6 +97,22 @@ impl FromObject for &'static mut Symbol {
     }
 }
 
+impl MaybeFrom<Object> for *const Symbol {
+    fn maybe_from(obj: Object) -> Option<Self> {
+        if let Object::Sym(ptr) = obj {
+            Some(ptr)
+        } else {
+            None
+        }
+    }
+}
+
+impl FromObject for *const Symbol {
+    fn rlisp_type() -> RlispType {
+        RlispType::Sym
+    }
+}
+
 impl MaybeFrom<Object> for &'static RlispString {
     fn maybe_from(obj: Object) -> Option<Self> {
         if let Object::String(ptr) = obj {

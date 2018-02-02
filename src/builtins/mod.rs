@@ -54,30 +54,29 @@ pub fn make_special_forms() -> RlispSpecialForms {
                 let arg = pop_bubble!(l);
                 body.push(arg);
             }
-            let mut symbols_bound = Vec::new();
+            let mut scope = Vec::new();
 
             #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
             for binding_pair in into_type_or_error!(l : bindings => &ConsCell).into_iter() {
                 let &ConsCell { car: symbol, cdr, .. } =
                     into_type_or_error!(l : binding_pair => &ConsCell);
                 let &ConsCell { car: value, .. } = into_type_or_error!(l : cdr => &ConsCell);
-                into_type_or_error!(l : symbol => &mut Symbol)
-                    .push({
+                scope.push((
+                    into_type_or_error!(l : symbol => *const Symbol),
+                    {
                         let r = l.evaluate(value);
                         bubble!(r);
                         r
-                    });
-                symbols_bound.push(symbol);
+                    }
+                ));
             }
+            l.new_scope(&scope);
             let mut res = Object::nil();
             for body_clause in &body {
                 res = l.evaluate(*body_clause);
                 bubble!(res);
             }
-            for symbol in &symbols_bound {
-                unsafe { <Object as IntoUnchecked<&mut Symbol>>
-                         ::into_unchecked(*symbol).pop(); }
-            }
+            l.end_scope();
             res
         },
         "setq" (symbol value &rest symbols values) -> {
@@ -92,11 +91,11 @@ pub fn make_special_forms() -> RlispSpecialForms {
                 while n_args > 1 {
                     n_args -= 2;
                     let sym = pop_bubble!(l);
-                    let sym = into_type_or_error!(l : sym => &mut Symbol);
                     let value = pop_bubble!(l);
+                    let sym = into_type_or_error!(l : sym => *const Symbol);
                     res = l.evaluate(value);
                     bubble!(res);
-                    sym.set(res);
+                    l.set_symbol(sym, res);
                 }
                 res
             }
@@ -161,7 +160,8 @@ pub fn make_special_forms() -> RlispSpecialForms {
                         .with_name(name)
                         .with_arglist(arglist)
                 );
-                into_type_or_error!(l : name => &mut Symbol).reset(fun);
+                let name = into_type_or_error!(l : name => *const Symbol);
+                l.set_symbol(name, fun);
                 fun
             }
         },
@@ -176,7 +176,8 @@ pub fn make_special_forms() -> RlispSpecialForms {
                 let val = pop_bubble!(l);
                 let val = l.evaluate(val);
                 bubble!(val);
-                into_type_or_error!(l : name => &mut Symbol).reset(val);
+                let name = into_type_or_error!(l : name => *const Symbol);
+                l.set_symbol(name, val);
                 val
             }
         },

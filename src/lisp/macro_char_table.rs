@@ -15,6 +15,6 @@ impl MacroChars for lisp::Lisp {
                 return None;
             }
         };
-        Some(self.intern(symbol))
+        Some(Object::from(self.make_symbol(symbol)))
     }
 }

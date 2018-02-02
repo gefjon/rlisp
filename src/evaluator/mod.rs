@@ -24,7 +24,7 @@ pub trait Evaluator
         );
         self.push(input); // push `input` to the stack so that the gc doesn't get rid of it
         let res = match input {
-            Object::Sym(s) => self.eval_symbol(s),
+            Object::Sym(s) => unsafe { self.get_symbol(s) },
             Object::Cons(c) => self.eval_list(c),
             Object::Bool(_)
             | Object::String(_)
@@ -41,15 +41,6 @@ pub trait Evaluator
         );
         debug_assert!(_popped == input);
         res
-    }
-    fn eval_symbol(&mut self, s: *const Symbol) -> Object {
-        if let Some(obj) = unsafe { (*s).get() } {
-            obj
-        } else {
-            let e: Error = ErrorKind::Unbound.into();
-            let e: RlispError = e.into();
-            self.alloc(e)
-        }
     }
     fn eval_list(&mut self, c: *const ConsCell) -> Object {
         // Evaluating a list entails treating the car as a function
@@ -145,8 +136,8 @@ pub trait Evaluator
                 for line in funcb {
                     ret = self.evaluate(*line);
                 }
-                if let Some(arglist) = arglist {
-                    bubble!(self.pop_args_from_lisp_func(arglist));
+                if arglist.is_some() {
+                    self.pop_args_from_lisp_func();
                 }
                 ret
             }
@@ -214,9 +205,11 @@ pub trait Evaluator
             if let list::ConsIteratorResult::Final(Some(_)) = res {
                 return Err(ErrorKind::ImproperList.into());
             } else if let list::ConsIteratorResult::More(obj) = res {
-                if obj == self.intern("&optional") {
+                let sym = <*const Symbol as MaybeFrom<Object>>::maybe_from(obj).unwrap();
+                let arg_name: &[u8] = unsafe { &*sym }.as_ref();
+                if arg_name == b"&optional" {
                     arg_type = ArgType::Optional;
-                } else if obj == self.intern("&rest") {
+                } else if arg_name == b"&rest" {
                     arg_type = ArgType::Rest;
                 } else {
                     match arg_type {
@@ -252,33 +245,33 @@ pub trait Evaluator
         let mut iter = list::iter(arglist);
         let mut arg_type = ArgType::Mandatory;
         let mut consumed = 0;
+        let mut args = Vec::with_capacity(n_args as _);
         loop {
             let res = iter.improper_next();
             if let ConsIteratorResult::More(sym) = res {
-                if sym == self.intern("&optional") {
+                let sym = into_type_or_error!(self : sym => *const Symbol);
+                let arg_name: &[u8] = unsafe { &*sym }.as_ref();
+                if arg_name == b"&optional" {
                     debug!("switching to &optional args");
                     arg_type = ArgType::Optional;
-                } else if sym == self.intern("&rest") {
+                } else if arg_name == b"&rest" {
                     debug!("switching to &rest args");
                     arg_type = ArgType::Rest;
                 } else {
-                    let sym = into_type_or_error!(self : sym => &mut Symbol);
-                    debug!("trying to get arg for symbol {:?}", sym);
                     match arg_type {
                         ArgType::Mandatory => {
                             let arg = pop_bubble!(self);
-                            debug!("get_args_for_lisp_func(): popped the arg {}", arg);
-                            sym.push(arg);
+                            args.push((sym, arg));
                             consumed += 1;
                         }
                         ArgType::Optional => {
                             if consumed < n_args {
                                 let arg = pop_bubble!(self);
                                 debug!("get_args_for_lisp_func(): popped the arg {}", arg);
-                                sym.push(arg);
+                                args.push((sym, arg));
                                 consumed += 1;
                             } else {
-                                sym.push(Object::nil());
+                                args.push((sym, Object::nil()));
                             }
                         }
                         ArgType::Rest => {
@@ -290,11 +283,14 @@ pub trait Evaluator
                                 let conscell = ConsCell::new(arg, head);
                                 head = self.alloc(conscell);
                             }
-                            sym.push(if head != Object::nil() {
-                                self.list_reverse(unsafe { head.into_unchecked() })
-                            } else {
-                                head
-                            });
+                            args.push((
+                                sym,
+                                if head != Object::nil() {
+                                    self.list_reverse(unsafe { head.into_unchecked() })
+                                } else {
+                                    head
+                                },
+                            ));
                         }
                     }
                 }
@@ -306,27 +302,13 @@ pub trait Evaluator
                 break;
             }
         }
+        self.new_scope(&args);
         Object::nil()
     }
-    fn pop_args_from_lisp_func(&mut self, arglist: &ConsCell) -> Object {
+    fn pop_args_from_lisp_func(&mut self) {
         // This method is called after evaluating a LispFn to unbind
         // the args
-        debug!("cleaning up after arglist {:?}", arglist);
-        let mut iter = list::iter(arglist);
-        loop {
-            let res = iter.improper_next();
-            if let ConsIteratorResult::More(sym) = res {
-                if (sym != self.intern("&optional")) && (sym != self.intern("&rest")) {
-                    let sym = into_type_or_error!(self : sym => &mut Symbol);
-                    sym.pop();
-                }
-            } else if let ConsIteratorResult::Final(Some(_)) = res {
-                return self.alloc(RlispError::improper_list());
-            } else {
-                break;
-            }
-        }
-        Object::nil()
+        self.end_scope();
     }
 }
 

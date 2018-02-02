@@ -182,7 +182,7 @@ pub trait Reader
         if let Ok(float) = f64::from_str(&sym_str) {
             Ok(Object::from(float))
         } else {
-            Ok(self.intern(sym_str))
+            Ok(Object::from(self.make_symbol(sym_str)))
         }
     }
 

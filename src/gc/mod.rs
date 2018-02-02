@@ -73,8 +73,10 @@ impl GarbageCollector for lisp::Lisp {
         self.current_gc_mark += 1
     }
     fn mark_symbols(&mut self) {
-        for sym in self.symbols.values() {
-            sym.gc_mark(self.current_marking());
+        for tab in &self.symbols {
+            for sym in tab.values() {
+                sym.gc_mark(self.current_marking());
+            }
         }
     }
 }

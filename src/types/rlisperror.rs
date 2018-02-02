@@ -14,6 +14,9 @@ impl RlispError {
     pub fn improper_list() -> Self {
         Self::from(RlispErrorKind::ImproperList)
     }
+    pub fn unbound_symbol(sym: Object) -> Self {
+        Self::from(RlispErrorKind::UnboundSymbol { sym })
+    }
 }
 
 impl convert::From<RlispErrorKind> for RlispError {
@@ -61,6 +64,9 @@ pub enum RlispErrorKind {
         found: Object,
     },
     ImproperList,
+    UnboundSymbol {
+        sym: Object,
+    },
     RustError(Error),
 }
 
@@ -90,6 +96,7 @@ impl fmt::Display for RlispErrorKind {
             RlispErrorKind::ImproperList => {
                 write!(f, "found an improper list where a proper one was expected")
             }
+            RlispErrorKind::UnboundSymbol { sym } => write!(f, "symbol {} is unbound", sym),
             RlispErrorKind::RustError(ref e) => write!(f, "INTERNAL: {}", e),
         }
     }

@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::default::Default;
 use types::*;
-use types::conversions::*;
 use types::into_object::*;
 use builtins;
 use std::convert;
@@ -50,7 +49,8 @@ pub mod allocate;
 const INITIAL_MACRO_CHARS: &[(u8, &str)] = &[(b'\'', "quote")];
 
 pub struct Lisp {
-    pub symbols: HashMap<String, Object>,
+    pub symbols: Vec<HashMap<*const Symbol, Object>>,
+    pub syms_in_memory: HashMap<String, *const Symbol>,
     macro_chars: HashMap<u8, &'static str>,
     pub stack: Vec<Object>,
     pub current_gc_mark: ::gc::GcMark,
@@ -63,53 +63,47 @@ impl Lisp {
         use lisp::allocate::AllocObject;
         use list::ListOps;
         for (name, mut arglist, fun) in builtin_funcs.drain(..) {
-            let name = self.intern(name);
+            let name = self.make_symbol(name);
             let arglist = {
                 let mut arg_syms = Vec::new();
                 for arg in arglist.drain(..) {
-                    arg_syms.push(self.intern(arg));
+                    arg_syms.push(Object::from(self.make_symbol(arg)));
                 }
                 self.list_from_vec(arg_syms)
             };
             let fun = self.alloc(
                 RlispFunc::from_builtin(fun)
-                    .with_name(name)
+                    .with_name(Object::from(name))
                     .with_arglist(arglist),
             );
-            unsafe {
-                <Object as IntoUnchecked<&mut Symbol>>::into_unchecked(name).set(fun);
-            }
+            self.set_symbol(name, fun);
         }
     }
     fn source_special_forms(&mut self, mut special_forms: builtins::RlispSpecialForms) {
         use lisp::allocate::AllocObject;
         use list::ListOps;
         for (name, mut arglist, fun) in special_forms.drain(..) {
-            let name = self.intern(name);
+            let name = self.make_symbol(name);
             let arglist = {
                 let mut arg_syms = Vec::new();
                 for arg in arglist.drain(..) {
-                    arg_syms.push(self.intern(arg));
+                    arg_syms.push(Object::from(self.make_symbol(arg)));
                 }
                 self.list_from_vec(arg_syms)
             };
             let fun = self.alloc(
                 RlispFunc::from_special_form(fun)
-                    .with_name(name)
+                    .with_name(Object::from(name))
                     .with_arglist(arglist),
             );
-            unsafe {
-                <Object as IntoUnchecked<&mut Symbol>>::into_unchecked(name).set(fun);
-            }
+            self.set_symbol(name, fun);
         }
     }
     fn source_builtin_vars(&mut self, mut builtin_vars: builtins::RlispBuiltinVars) {
         for (name, val) in builtin_vars.drain(..) {
-            let name = self.intern(name);
+            let name = self.make_symbol(name);
             let val = self.convert_into_object(val);
-            unsafe {
-                <Object as IntoUnchecked<&mut Symbol>>::into_unchecked(name).set(val);
-            }
+            self.set_symbol(name, val)
         }
     }
 }
@@ -117,7 +111,8 @@ impl Lisp {
 impl Default for Lisp {
     fn default() -> Self {
         let mut me = Self {
-            symbols: HashMap::new(),
+            symbols: vec![HashMap::new()],
+            syms_in_memory: HashMap::new(),
             macro_chars: INITIAL_MACRO_CHARS.iter().cloned().collect(),
             current_gc_mark: 1,
             stack: Vec::new(),
