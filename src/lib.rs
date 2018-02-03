@@ -85,6 +85,7 @@ mod gc;
 mod reader;
 mod evaluator;
 mod math;
+mod symbols_table;
 
 pub mod repl;
 pub mod lisp;

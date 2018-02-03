@@ -23,7 +23,7 @@ pub trait GarbageCollector
     fn update_gc_threshold(&mut self);
     fn current_marking(&self) -> GcMark;
     fn inc_gc_mark(&mut self);
-    fn mark_symbols(&mut self);
+    fn mark_scope(&mut self);
     fn mark_stack(&mut self) {
         for obj in self.stack_vec() {
             debug!("{} is accessible; marking it", obj);
@@ -46,7 +46,7 @@ pub trait GarbageCollector
     }
     fn gc_pass(&mut self) {
         self.mark_stack();
-        self.mark_symbols();
+        self.mark_scope();
         self.sweep();
         self.inc_gc_mark();
         self.update_gc_threshold();
@@ -60,6 +60,13 @@ pub trait GarbageCollector
 }
 
 impl GarbageCollector for lisp::Lisp {
+    fn mark_scope(&mut self) {
+        for namespace in &self.symbols {
+            unsafe {
+                (**namespace).gc_mark(self.current_marking());
+            }
+        }
+    }
     fn should_gc_run(&self) -> bool {
         self.alloced_objects.len() > self.gc_threshold
     }
@@ -71,13 +78,6 @@ impl GarbageCollector for lisp::Lisp {
     }
     fn inc_gc_mark(&mut self) {
         self.current_gc_mark += 1
-    }
-    fn mark_symbols(&mut self) {
-        for tab in &self.symbols {
-            for sym in tab.values() {
-                sym.gc_mark(self.current_marking());
-            }
-        }
     }
 }
 

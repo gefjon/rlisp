@@ -31,6 +31,9 @@ pub use self::rlisperror::RlispError;
 pub mod function;
 pub use self::function::RlispFunc;
 
+pub mod namespace;
+pub use self::namespace::{Namespace, Scope};
+
 pub mod conversions;
 use self::conversions::*;
 
@@ -44,6 +47,7 @@ pub enum Object {
     String(*const RlispString),
     Function(*const RlispFunc),
     Error(*const RlispError),
+    Namespace(*mut Namespace),
     Bool(bool),
 }
 
@@ -58,6 +62,7 @@ pub enum RlispType {
     Error,
     Integer,
     NatNum,
+    Namespace,
 }
 
 impl Object {
@@ -139,6 +144,7 @@ impl Object {
             Object::Function(_) => RlispType::Function,
             Object::Bool(_) => RlispType::Bool,
             Object::Error(_) => RlispType::Error,
+            Object::Namespace(_) => RlispType::Namespace,
         }
     }
     pub fn gc_mark(self, marking: ::gc::GcMark) {
@@ -154,6 +160,7 @@ impl Object {
             Object::String(s) => unsafe { (&mut *(s as *mut RlispString)).gc_mark(marking) },
             Object::Function(f) => unsafe { (*(f as *mut RlispFunc)).gc_mark(marking) },
             Object::Error(e) => unsafe { (*(e as *mut RlispError)).gc_mark(marking) },
+            Object::Namespace(n) => unsafe { (*n).gc_mark(marking) },
         }
     }
     pub fn should_dealloc(self, current_marking: ::gc::GcMark) -> bool {
@@ -164,6 +171,7 @@ impl Object {
             Object::String(s) => unsafe { (*s).should_dealloc(current_marking) },
             Object::Function(f) => unsafe { (*f).should_dealloc(current_marking) },
             Object::Error(e) => unsafe { (*e).should_dealloc(current_marking) },
+            Object::Namespace(n) => unsafe { (*n).should_dealloc(current_marking) },
         }
     }
 }
@@ -179,6 +187,7 @@ impl fmt::Display for Object {
             Object::String(s) => unsafe { write!(f, "{}", &*s) },
             Object::Function(func) => unsafe { write!(f, "{}", *func) },
             Object::Error(e) => unsafe { write!(f, "{}", *e) },
+            Object::Namespace(n) => unsafe { write!(f, "{}", *n) },
         }
     }
 }
@@ -194,6 +203,7 @@ impl fmt::Debug for Object {
             Object::String(s) => unsafe { write!(f, "{:?}", &*s) },
             Object::Function(func) => unsafe { write!(f, "{:?}", *func) },
             Object::Error(e) => unsafe { write!(f, "{}", *e) },
+            Object::Namespace(n) => unsafe { write!(f, "{:?}", *n) },
         }
     }
 }
@@ -269,6 +279,12 @@ impl convert::From<*mut RlispFunc> for Object {
 impl convert::From<*mut RlispError> for Object {
     fn from(err: *mut RlispError) -> Self {
         Object::Error(err as _)
+    }
+}
+
+impl convert::From<*mut Namespace> for Object {
+    fn from(nmspc: *mut Namespace) -> Self {
+        Object::Namespace(nmspc)
     }
 }
 

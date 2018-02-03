@@ -42,9 +42,9 @@ macro_rules! into_type_or_error {
             val
         } else {
 
-            let wanted_type = <_ as $crate::lisp::symbols_table::Symbols>
+            let wanted_type = <_ as $crate::symbols_table::SymbolLookup>
                 ::type_name($l, <$type as $crate::types::conversions::FromObject>::rlisp_type());
-            let got_type = <_ as $crate::lisp::symbols_table::Symbols>
+            let got_type = <_ as $crate::symbols_table::SymbolLookup>
                 ::type_name($l, $obj.what_type());
             let e = RlispError::wrong_type(
                 wanted_type,

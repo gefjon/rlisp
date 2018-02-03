@@ -12,9 +12,10 @@ use types::function::*;
 use builtins::{RlispBuiltinFunc, RlispSpecialForm};
 use gc;
 use types::conversions::*;
+use symbols_table::SymbolLookup;
 
 pub trait Evaluator
-    : lisp::Symbols + lisp::stack_storage::Stack + gc::GarbageCollector + list::ListOps
+    : SymbolLookup + lisp::stack_storage::Stack + gc::GarbageCollector + list::ListOps
     {
     fn evaluate(&mut self, input: Object) -> Object {
         debug!("evaluating {}", input);
@@ -30,7 +31,8 @@ pub trait Evaluator
             | Object::String(_)
             | Object::Num(_)
             | Object::Function(_)
-            | Object::Error(_) => input, // the majority of types evaluate to themselves
+            | Object::Error(_)
+            | Object::Namespace(_) => input, // the majority of types evaluate to themselves
         };
         self.gc_maybe_pass();
         debug!("{} evaluated to {}", input, res);
@@ -105,7 +107,7 @@ pub trait Evaluator
 
             debug!("eval_list(): pushing {} as num_args", num_args);
             self.push(Object::from(num_args));
-            self.funcall(func)
+            self.put_function_scope_and_call(func)
         }
     }
     fn call_special_form(&mut self, func: &mut RlispSpecialForm) -> Object;
@@ -144,6 +146,16 @@ pub trait Evaluator
             FunctionBody::RustFn(ref mut funcb) => self.call_rust_func((*funcb).as_mut(), n_args),
             FunctionBody::SpecialForm(_) => unreachable!(),
         }
+    }
+    fn put_function_scope_and_call(&mut self, func: &mut RlispFunc) -> Object {
+        if let Some(scope) = func.scope {
+            self.push_namespace(scope);
+        }
+        let res = self.funcall(func);
+        if func.scope.is_some() {
+            self.end_scope();
+        }
+        res
     }
     fn funcall_unchecked(&mut self, func: &mut RlispFunc, n_args: u32) -> Object {
         warn!("Calling a function without checking args!");

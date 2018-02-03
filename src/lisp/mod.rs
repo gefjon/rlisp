@@ -2,14 +2,13 @@ use std::collections::HashMap;
 use std::default::Default;
 use types::*;
 use types::into_object::*;
+use types::conversions::*;
 use builtins;
 use std::convert;
+use symbols_table::SymbolLookup;
 
 mod macro_char_table;
 pub use self::macro_char_table::MacroChars;
-
-pub mod symbols_table;
-pub use self::symbols_table::Symbols;
 
 pub mod stack_storage {
     use types::*;
@@ -49,7 +48,7 @@ pub mod allocate;
 const INITIAL_MACRO_CHARS: &[(u8, &str)] = &[(b'\'', "quote")];
 
 pub struct Lisp {
-    pub symbols: Vec<HashMap<*const Symbol, Object>>,
+    pub symbols: Scope,
     pub syms_in_memory: HashMap<String, *const Symbol>,
     macro_chars: HashMap<u8, &'static str>,
     pub stack: Vec<Object>,
@@ -110,8 +109,9 @@ impl Lisp {
 
 impl Default for Lisp {
     fn default() -> Self {
+        use lisp::allocate::AllocObject;
         let mut me = Self {
-            symbols: vec![HashMap::new()],
+            symbols: vec![],
             syms_in_memory: HashMap::new(),
             macro_chars: INITIAL_MACRO_CHARS.iter().cloned().collect(),
             current_gc_mark: 1,
@@ -119,6 +119,9 @@ impl Default for Lisp {
             alloced_objects: Vec::new(),
             gc_threshold: 16,
         };
+        let global_namespace = me.alloc(Namespace::default());
+        let global_namespace = unsafe { global_namespace.into_unchecked() };
+        me.push_namespace(global_namespace);
         me.source_builtin_vars(builtins::builtin_vars());
         me.source_special_forms(builtins::make_special_forms());
         me.source_builtins(builtins::make_builtins());

@@ -16,7 +16,7 @@ const COMMENT_DESIGNATORS: &[u8] = &[b';'];
 const COMMENT_ENDS: &[u8] = &[b'\n'];
 
 pub trait Reader
-    : lisp::Symbols + lisp::MacroChars + lisp::allocate::AllocObject + list::ListOps
+    : ::symbols_table::SymbolLookup + lisp::MacroChars + lisp::allocate::AllocObject + list::ListOps
     {
     fn read<V: Iterator<Item = u8>>(&mut self, input: &mut Peekable<V>) -> Result<Option<Object>> {
         debug!("called read()");

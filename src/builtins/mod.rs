@@ -1,4 +1,4 @@
-use lisp::symbols_table::Symbols;
+use symbols_table::SymbolLookup;
 use result::*;
 use types::*;
 use types::into_object::*;

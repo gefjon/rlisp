@@ -210,3 +210,19 @@ impl FromObject for bool {
         RlispType::Bool
     }
 }
+
+impl MaybeFrom<Object> for *mut Namespace {
+    fn maybe_from(obj: Object) -> Option<Self> {
+        if let Object::Namespace(n) = obj {
+            Some(n)
+        } else {
+            None
+        }
+    }
+}
+
+impl FromObject for *mut Namespace {
+    fn rlisp_type() -> RlispType {
+        RlispType::Namespace
+    }
+}

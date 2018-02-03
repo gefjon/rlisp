@@ -1,8 +1,8 @@
 use lisp;
 use types::*;
-use lisp::Symbols;
+use symbols_table::SymbolLookup;
 
-pub trait MacroChars: Symbols {
+pub trait MacroChars: SymbolLookup {
     fn check_macro_char(&mut self, byte: u8) -> Option<Object>;
 }
 

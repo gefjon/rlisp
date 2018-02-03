@@ -34,6 +34,7 @@ pub trait AllocObject {
             Object::String(s) => self.dealloc_string(s as _),
             Object::Function(f) => self.low_level_dealloc(f),
             Object::Error(e) => self.low_level_dealloc(e),
+            Object::Namespace(n) => self.low_level_dealloc(n as *const Namespace),
         }
     }
     unsafe fn low_level_dealloc<T>(&mut self, to_dealloc: *const T) {

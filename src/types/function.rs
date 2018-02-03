@@ -22,6 +22,7 @@ pub struct RlispFunc {
     // TODO: docstrings
     pub arglist: Option<Object>,
     pub body: FunctionBody,
+    pub scope: Option<*mut Namespace>,
     gc_marking: GcMark,
     name: Option<Object>,
 }
@@ -39,6 +40,7 @@ impl RlispFunc {
             body: FunctionBody::LispFn(body),
             gc_marking: 0,
             name: None,
+            scope: None,
         }
     }
     pub fn from_builtin(fun: Box<builtins::RlispBuiltinFunc>) -> Self {
@@ -47,6 +49,7 @@ impl RlispFunc {
             body: FunctionBody::RustFn(fun),
             gc_marking: 0,
             name: None,
+            scope: None,
         }
     }
     pub fn from_special_form(fun: Box<builtins::RlispSpecialForm>) -> Self {
@@ -55,6 +58,7 @@ impl RlispFunc {
             body: FunctionBody::SpecialForm(fun),
             gc_marking: 0,
             name: None,
+            scope: None,
         }
     }
     pub fn with_arglist(mut self, arglist: Object) -> Self {
@@ -63,6 +67,10 @@ impl RlispFunc {
     }
     pub fn with_name(mut self, name: Object) -> Self {
         self.name = Some(name);
+        self
+    }
+    pub fn with_scope(mut self, scope: *mut Namespace) -> Self {
+        self.scope = Some(scope);
         self
     }
 }

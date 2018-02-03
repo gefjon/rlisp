@@ -2,20 +2,26 @@ use std::collections::HashMap;
 use types::*;
 use types::rlisperror::RlispErrorKind;
 use lisp::Lisp;
+use types::conversions::FromUnchecked;
 use lisp::allocate::AllocObject;
 
-pub trait Symbols: AllocObject {
+pub trait SymbolLookup: AllocObject {
+    fn push_namespace(&mut self, nmspc: *mut Namespace) {
+        self.scope_mut().push(nmspc);
+    }
     fn new_scope(&mut self, keys_and_vals: &[(*const Symbol, Object)]) {
         let mut table = HashMap::with_capacity(keys_and_vals.len());
         for (key, val) in keys_and_vals.iter().cloned() {
             let _insert_res = table.insert(key, val);
             debug_assert!(_insert_res.is_none());
         }
-        self.symbol_tab_stack().push(table);
+        let table = self.alloc(Namespace::from(table));
+        let table = unsafe { <*mut Namespace as FromUnchecked<Object>>::from_unchecked(table) };
+        self.scope_mut().push(table);
     }
     fn end_scope(&mut self) {
-        self.symbol_tab_stack().pop();
-        debug_assert!(!self.symbol_tab_stack().is_empty());
+        self.scope_mut().pop();
+        debug_assert!(!self.scope().is_empty());
     }
     fn make_symbol<T>(&mut self, sym: T) -> *const Symbol
     where
@@ -28,7 +34,7 @@ pub trait Symbols: AllocObject {
         } else {
             let new_symbol = unsafe {
                 let obj = self.alloc_sym(sym.as_ref());
-                <&mut Symbol as conversions::FromUnchecked<Object>>::from_unchecked(obj)
+                <&mut Symbol as FromUnchecked<Object>>::from_unchecked(obj)
             };
             let _insert_res = self.syms_in_memory().insert(sym.clone(), new_symbol);
             debug_assert!(_insert_res.is_none());
@@ -44,7 +50,8 @@ pub trait Symbols: AllocObject {
         } else if sym_name[0] == b':' {
             Object::from(sym)
         } else {
-            for table in self.symbol_tab_stack() {
+            for table in self.scope() {
+                let table = &**table;
                 if table.contains_key(&sym) {
                     return *(table.get(&sym).unwrap());
                 }
@@ -53,7 +60,8 @@ pub trait Symbols: AllocObject {
         }
     }
     fn set_symbol(&mut self, sym: *const Symbol, val: Object) {
-        for table in self.symbol_tab_stack().iter_mut() {
+        for table in self.scope_mut() {
+            let table = unsafe { &mut **table };
             if table.contains_key(&sym) {
                 if let Some(sym_val) = table.get_mut(&sym) {
                     *sym_val = val;
@@ -78,6 +86,7 @@ pub trait Symbols: AllocObject {
             RlispType::Error => "error",
             RlispType::Integer => "integer",
             RlispType::NatNum => "natnum",
+            RlispType::Namespace => "namespace",
         }))
     }
     fn error_name(&mut self, err: &RlispErrorKind) -> Object {
@@ -89,15 +98,19 @@ pub trait Symbols: AllocObject {
             RlispErrorKind::RustError(_) => "internal-error",
         }))
     }
-    fn symbol_tab_stack(&mut self) -> &mut Vec<HashMap<*const Symbol, Object>>;
-    fn global_symbol_tab(&mut self) -> &mut HashMap<*const Symbol, Object> {
-        &mut self.symbol_tab_stack()[0]
+    fn scope(&self) -> &Scope;
+    fn scope_mut(&mut self) -> &mut Scope;
+    fn global_symbol_tab(&mut self) -> &mut Namespace {
+        unsafe { &mut *(self.scope_mut()[0]) }
     }
     fn syms_in_memory(&mut self) -> &mut HashMap<String, *const Symbol>;
 }
 
-impl Symbols for Lisp {
-    fn symbol_tab_stack(&mut self) -> &mut Vec<HashMap<*const Symbol, Object>> {
+impl SymbolLookup for Lisp {
+    fn scope(&self) -> &Scope {
+        &self.symbols
+    }
+    fn scope_mut(&mut self) -> &mut Scope {
         &mut self.symbols
     }
     fn syms_in_memory(&mut self) -> &mut HashMap<String, *const Symbol> {
