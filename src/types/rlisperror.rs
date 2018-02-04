@@ -17,6 +17,9 @@ impl RlispError {
     pub fn unbound_symbol(sym: Object) -> Self {
         Self::from(RlispErrorKind::UnboundSymbol { sym })
     }
+    pub fn custom(kind: Object, info: Object) -> Self {
+        Self::from(RlispErrorKind::Custom { kind, info })
+    }
 }
 
 impl convert::From<RlispErrorKind> for RlispError {
@@ -68,6 +71,10 @@ pub enum RlispErrorKind {
         sym: Object,
     },
     RustError(Error),
+    Custom {
+        kind: Object,
+        info: Object,
+    },
 }
 
 impl RlispErrorKind {
@@ -98,6 +105,7 @@ impl fmt::Display for RlispErrorKind {
             }
             RlispErrorKind::UnboundSymbol { sym } => write!(f, "symbol {} is unbound", sym),
             RlispErrorKind::RustError(ref e) => write!(f, "INTERNAL: {}", e),
+            RlispErrorKind::Custom { kind, info } => write!(f, "{}: {}", kind, info),
         }
     }
 }

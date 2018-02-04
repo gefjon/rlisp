@@ -5,6 +5,7 @@ use types::into_object::*;
 use lisp;
 use std::boxed::Box;
 use lisp::allocate::AllocObject;
+use lisp::stack_storage::Stack;
 use types::conversions::*;
 
 // The macros `special_forms` and `builtin_functions` are the main
@@ -241,6 +242,74 @@ pub fn make_special_forms() -> RlispSpecialForms {
                             .with_arglist(arglist)
                     )
                 }
+            }
+        },
+        "check-type" (&rest objects typenames) -> {
+            let n_args  = unsafe { pop_bubble!(l).into_unchecked() };
+            if ::math::oddp(n_args) {
+                for _ in 0..n_args {
+                    l.pop();
+                }
+                let e: Error = ErrorKind::WantedEvenArgCt.into();
+                let e: RlispError = e.into();
+                l.alloc(e)
+            } else {
+                let mut n_args: u32 = n_args as _;
+                let mut res = Object::nil();
+                while n_args > 1 {
+                    n_args -= 2;
+                    let obj = pop_bubble!(l);
+                    let type_name = pop_bubble!(l);
+                    let type_name = into_type_or_error!(l : type_name => *const Symbol);
+                    res = l.evaluate(obj);
+                    bubble!(res);
+                    if let Some(typ) = unsafe { l.type_from_symbol(type_name) } {
+                        if typ == RlispType::Integer {
+                            if let Some(n) = f64::maybe_from(res) {
+                                if ::math::integerp(n) {
+                                    continue;
+                                }
+                            }
+                            let e = RlispError::wrong_type(l.type_name(typ),
+                                                           l.type_name(res.what_type()));
+                            for _ in 0..n_args {
+                                l.pop();
+                            }
+                            return l.alloc(e);
+                        } else if typ == RlispType::NatNum {
+                            if let Some(n) = f64::maybe_from(res) {
+                                if ::math::natnump(n) {
+                                    continue;
+                                }
+                            }
+                            let e = RlispError::wrong_type(l.type_name(typ),
+                                                           l.type_name(res.what_type()));
+                            for _ in 0..n_args {
+                                l.pop();
+                            }
+                            return l.alloc(e);
+                        } else if typ != res.what_type() {
+                            let e = RlispError::wrong_type(l.type_name(typ),
+                                                           l.type_name(res.what_type()));
+                            for _ in 0..n_args {
+                                l.pop();
+                            }
+                            return l.alloc(e);
+                        }
+                    } else {
+                        let e_str = l.alloc_string(&format!(
+                            "{} is not a type designator",
+                            unsafe { &*type_name }
+                        ));
+                        let e_kind = l.alloc_sym("type-designator-error");
+                        let e = RlispError::custom(e_kind, e_str);
+                        for _ in 0..n_args {
+                            l.pop();
+                        }
+                        return l.alloc(e);
+                    }
+                }
+                res
             }
         },
     }

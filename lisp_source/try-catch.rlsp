@@ -4,3 +4,21 @@
              (improper-list-error (print 'improper-list-error))
              (internal-error (print 'iternal-error))
              (t (print t)))
+
+(defun takes-a-number (n)
+  (check-type n number))
+
+(defun takes-a-natnum (n)
+  (check-type n natnum))
+
+(defun takes-an-int (n)
+  (check-type n integer))
+
+(catch-error (takes-a-number 'foo)
+             (wrong-type-error (print 'wrong-type-error)))
+
+(catch-error (takes-an-int 30.5)
+             (wrong-type-error (print 'wrong-type-error)))
+
+(catch-error (takes-a-natnum -10)
+             (wrong-type-error (print 'wrong-type-error)))

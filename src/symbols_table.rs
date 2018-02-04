@@ -74,7 +74,22 @@ pub trait SymbolLookup: AllocObject {
         let _insert_res = self.global_symbol_tab().insert(sym, val);
         debug_assert!(_insert_res.is_none());
     }
-
+    unsafe fn type_from_symbol(&mut self, sym: *const Symbol) -> Option<RlispType> {
+        let sym_name: &str = (*sym).as_ref();
+        match sym_name {
+            "cons" => Some(RlispType::Cons),
+            "number" => Some(RlispType::Num),
+            "symbol" => Some(RlispType::Sym),
+            "string" => Some(RlispType::String),
+            "function" => Some(RlispType::Function),
+            "boolean" => Some(RlispType::Bool),
+            "error" => Some(RlispType::Error),
+            "integer" => Some(RlispType::Integer),
+            "natnum" => Some(RlispType::NatNum),
+            "namespace" => Some(RlispType::Namespace),
+            _ => None,
+        }
+    }
     fn type_name(&mut self, typ: RlispType) -> Object {
         Object::from(self.make_symbol(match typ {
             RlispType::Cons => "cons",
@@ -96,6 +111,9 @@ pub trait SymbolLookup: AllocObject {
             RlispErrorKind::ImproperList => "improper-list-error",
             RlispErrorKind::UnboundSymbol { .. } => "unbound-symbol-error",
             RlispErrorKind::RustError(_) => "internal-error",
+            RlispErrorKind::Custom { kind, .. } => {
+                return kind;
+            }
         }))
     }
     fn scope(&self) -> &Scope;
