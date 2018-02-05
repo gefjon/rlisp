@@ -22,7 +22,7 @@ pub struct RlispFunc {
     // TODO: docstrings
     pub arglist: Option<Object>,
     pub body: FunctionBody,
-    pub scope: Option<*mut Namespace>,
+    pub scope: Option<Vec<*mut Namespace>>,
     gc_marking: GcMark,
     name: Option<Object>,
 }
@@ -69,7 +69,7 @@ impl RlispFunc {
         self.name = Some(name);
         self
     }
-    pub fn with_scope(mut self, scope: *mut Namespace) -> Self {
+    pub fn with_scope(mut self, scope: Vec<*mut Namespace>) -> Self {
         self.scope = Some(scope);
         self
     }

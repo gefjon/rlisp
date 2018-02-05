@@ -148,12 +148,16 @@ pub trait Evaluator
         }
     }
     fn put_function_scope_and_call(&mut self, func: &mut RlispFunc) -> Object {
-        if let Some(scope) = func.scope {
-            self.push_namespace(scope);
+        if let Some(ref scope) = func.scope {
+            for nmspc in scope {
+                self.push_namespace(*nmspc);
+            }
         }
         let res = self.funcall(func);
-        if func.scope.is_some() {
-            self.end_scope();
+        if let Some(ref scope) = func.scope {
+            for _ in scope {
+                self.end_scope();
+            }
         }
         res
     }

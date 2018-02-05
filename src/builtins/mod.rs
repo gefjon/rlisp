@@ -156,10 +156,12 @@ pub fn make_special_forms() -> RlispSpecialForms {
                 for _ in 0..(n_args - 2) {
                     body.push(pop_bubble!(l));
                 }
+                let scope = l.symbols.clone();
                 let fun = l.alloc(
                     RlispFunc::from_body(body)
                         .with_name(name)
                         .with_arglist(arglist)
+                        .with_scope(scope)
                 );
                 let name = into_type_or_error!(l : name => *const Symbol);
                 l.set_symbol(name, fun);
@@ -237,9 +239,11 @@ pub fn make_special_forms() -> RlispSpecialForms {
                                                    l.type_name(arglist.what_type()));
                     l.alloc(e)
                 } else {
+                    let scope = l.symbols.clone();
                     l.alloc(
                         RlispFunc::from_body(body)
                             .with_arglist(arglist)
+                            .with_scope(scope)
                     )
                 }
             }
