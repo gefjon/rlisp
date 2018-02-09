@@ -379,8 +379,36 @@ pub fn make_builtins() -> RlispBuiltins {
 
 pub fn builtin_vars() -> RlispBuiltinVars {
     builtin_vars! {
-        "*pi*" = ::std::f64::consts::PI,
-        "*e*" = ::std::f64::consts::E,
-        "*infinity*" = ::std::f64::INFINITY,
+        "+pi+" = ::std::f64::consts::PI,
+        "+e+" = ::std::f64::consts::E,
+        "+sqrt2+" = ::std::f64::consts::SQRT_2,
+
+        "+ln2+" = ::std::f64::consts::LN_2,
+        "+ln10+" = ::std::f64::consts::LN_10,
+
+        "+log2-e+" = ::std::f64::consts::LOG2_E,
+        "+lge+" = ::std::f64::consts::LOG10_E,
+
+        "+1/pi+" = ::std::f64::consts::FRAC_1_PI,
+        "+2/pi+" = ::std::f64::consts::FRAC_2_PI,
+
+        "+pi/2+" = ::std::f64::consts::FRAC_PI_2,
+        "+pi/3+" = ::std::f64::consts::FRAC_PI_3,
+        "+pi/4+" = ::std::f64::consts::FRAC_PI_4,
+        "+pi/6+" = ::std::f64::consts::FRAC_PI_6,
+        "+pi/8+" = ::std::f64::consts::FRAC_PI_8,
+
+        "+1/sqrt2+" = ::std::f64::consts::FRAC_1_SQRT_2,
+
+        "+infinity+" = ::std::f64::INFINITY,
+        "+-infinity+" = ::std::f64::NEG_INFINITY,
+        "+epsilon+" = ::std::f64::EPSILON,
+        "+min-num+" = ::std::f64::MIN,
+        "+max-num+" = ::std::f64::MAX,
+        "+nan+" = ::std::f64::NAN,
+        "+min-integer+" = ::std::i32::MIN,
+        "+max-integer+" = ::std::i32::MAX,
+        "+min-natnum+" = ::std::u32::MIN,
+        "+max-natnum+" = ::std::u32::MAX,
     }
 }

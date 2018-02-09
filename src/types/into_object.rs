@@ -62,3 +62,15 @@ impl convert::From<bool> for IntoObject {
         IntoObject::Bool(b)
     }
 }
+
+impl convert::From<i32> for IntoObject {
+    fn from(n: i32) -> Self {
+        IntoObject::Num(f64::from(n))
+    }
+}
+
+impl convert::From<u32> for IntoObject {
+    fn from(n: u32) -> Self {
+        IntoObject::Num(f64::from(n))
+    }
+}
