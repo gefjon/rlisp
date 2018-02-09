@@ -4,10 +4,8 @@ use lisp::allocate::AllocObject;
 use lisp;
 
 pub enum IntoObject {
-    Cons(ConsCell),
     Num(f64),
     String(&'static str),
-    Function(RlispFunc),
     Error(RlispError),
     Bool(bool),
 }
@@ -15,10 +13,8 @@ pub enum IntoObject {
 pub trait ConvertIntoObject: AllocObject {
     fn convert_into_object(&mut self, i: IntoObject) -> Object {
         match i {
-            IntoObject::Cons(c) => self.alloc(c),
             IntoObject::Num(n) => Object::from(n),
             IntoObject::String(s) => self.alloc_string(s),
-            IntoObject::Function(f) => self.alloc(f),
             IntoObject::Error(e) => self.alloc(e),
             IntoObject::Bool(b) => Object::from(b),
         }
@@ -26,12 +22,6 @@ pub trait ConvertIntoObject: AllocObject {
 }
 
 impl ConvertIntoObject for lisp::Lisp {}
-
-impl convert::From<ConsCell> for IntoObject {
-    fn from(c: ConsCell) -> Self {
-        IntoObject::Cons(c)
-    }
-}
 
 impl convert::From<f64> for IntoObject {
     fn from(n: f64) -> Self {
@@ -42,12 +32,6 @@ impl convert::From<f64> for IntoObject {
 impl convert::From<&'static str> for IntoObject {
     fn from(s: &'static str) -> Self {
         IntoObject::String(s)
-    }
-}
-
-impl convert::From<RlispFunc> for IntoObject {
-    fn from(f: RlispFunc) -> Self {
-        IntoObject::Function(f)
     }
 }
 
