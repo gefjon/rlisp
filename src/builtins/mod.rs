@@ -348,13 +348,31 @@ pub fn make_builtins() -> RlispBuiltins {
                         return false.into();
                     }
                 }
-            } else if !objects.nilp() {
-                let e: RlispError = RlispError::wrong_type(l.type_name(RlispType::Cons),
-                                                      l.type_name(objects.what_type()));
-
-                return l.alloc(e);
+            } else {
+                debug_assert!(objects.nilp())
             }
             true.into()
+        },
+        "wrong-type-error" (wanted found) -> {
+            l.alloc(RlispError::wrong_type(wanted, found))
+        },
+        "wrong-arg-count-error" (found min &optional max) -> {
+            let _ = into_type_or_error!(l : found => u32);
+            let _ = into_type_or_error!(l : found => u32);
+            if bool::from(max) {
+                let _ = into_type_or_error!(l : found => u32);
+            }
+            l.alloc(RlispError::bad_args_count(found, min, max))
+        },
+        "improper-list-error" () -> {
+            l.alloc(RlispError::improper_list())
+        },
+        "unbound-symbol-error" (sym) -> {
+            let _ = into_type_or_error!(l : sym => &'static mut Symbol);
+            l.alloc(RlispError::unbound_symbol(sym))
+        },
+        "error" (kind &rest info) -> {
+            l.alloc(RlispError::custom(kind, info))
         },
     }
 }

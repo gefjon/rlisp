@@ -17,6 +17,9 @@ impl RlispError {
     pub fn unbound_symbol(sym: Object) -> Self {
         Self::from(RlispErrorKind::UnboundSymbol { sym })
     }
+    pub fn bad_args_count(found: Object, min: Object, max: Object) -> Self {
+        Self::from(RlispErrorKind::BadArgsCount { found, min, max })
+    }
     pub fn custom(kind: Object, info: Object) -> Self {
         Self::from(RlispErrorKind::Custom { kind, info })
     }

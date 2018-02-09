@@ -150,11 +150,16 @@ macro_rules! arglist {
             arglist
         }
     };
-    ($($arg:ident)*) => {
+    ($($arg:ident)+) => {
         {
             let mut arglist = Vec::new();
             $(arglist.push(arg_in_list!($arg));)*;
             arglist
+        }
+    };
+    () => {
+        {
+            vec![]
         }
     };
 }
