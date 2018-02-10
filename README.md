@@ -34,21 +34,21 @@ every case I have tested it works the way I expect.
 
 ### Variables and binding
 
-NOTE: local bindings (ie `let` and function calls) **are visible to
-functions called during their scopes**.
+Rlisp is (I hope) lexically scoped.
 
-    (defvar 1+ (n) (+ n 1))
-    (defvar 1- (n) (- n 1))
-    
-    (defvar inefficent-add (n m)
-        (cond ((= m 0) n)
-              (t (inefficent-add (1+ n) (1- m)))))
-    
-    (let ((1+ nil))
-        (inefficent-add 5 5))
+    lisp> (defvar func (let ((x 3)) (lambda () x)))
+    ...
+    lisp> (func)
 
-will cause an error because at the point of calling `inefficent-add`,
-`1+` is not a function.
+will print `3`, and
+
+    lisp> (defvar x 3)
+    ...
+    lisp> (defvar func (let ((x 3)) (lambda () x)))
+    ...
+    lisp> (let ((x 4)) (func))
+    
+will also print `3`.
 
 #### `defvar`
 
@@ -112,6 +112,89 @@ a `&rest` argument will be ignored. (note: some special forms
 e.g. `setq` take multiple `&rest` arguments. Do not be fooled; regular
 functions don't get to do that!)
 
+
+#### Namespaces
+
+Namespaces are created with `make-namespace`. `make-namespace` takes
+an optional argument `name`, which is the name of the
+namespace. `name` is not evaluated. If `name` is a symbol,
+`make-namespace` sets `name` in the global namespace to the newly
+created namespace. `make-namespace` returns the created namespace, so
+a function like:
+
+    (defun returns-a-namespace ()
+        (let ((my-namespace (make-namespace "I made this!")))
+            (set my-namespace three 3)
+            (set my-namespace foo 'bar)
+            my-namespace))
+
+will create a namespace containing the pairs `three` = `3` and `foo` =
+`bar`.
+
+Namespace symbols can be accessed using `get` and `set`, which have
+the signatures
+
+    (get NAMESPACE SYMBOL)
+    (set NAMESPACE SYMBOL VALUE)
+
+`NAMESPACE` and `VALUE` are evaluated but `SYMBOL` is not.
+
+The global namespace can be accessed using `(global-namespace)`. Therefore,
+
+    lisp> (get (global-namespace) x)
+
+is the same as just doing
+
+    lisp> x
+
+and
+
+    lisp> (set (global-namespace) x 12)
+
+is the same as doing
+
+    lisp> (setq x 3)
+    
+#### Errors
+
+    (catch-error (something-that-may-fail)
+      (error-name CATCH-FORM)
+      (other-error-name CATCH-FORM)
+      (t CATCH-FORM))
+  
+will try `(something-that-may-fail)` and if it is successful, return
+its value. If it fails, `catch-error` will continue through its
+`error-name`/`catch-form` pairs. It will evaluate the first one for
+which `error-name` `eq`s the name of the error returned by
+`(something-that-may-fail)` and evaluate and return the associated
+`catch-form`. The `error-name` `t` will match any error, and if no
+matching `error-name` is found, `catch-error` will return the error.
+
+The names of errors that Rlisp will generate itself are
+`wrong-type-error`, `wrong-arg-count-error`, `improper-list-error`,
+`unbound-symbol-error` and `internal-error`. All of these except
+`internal-error` can be created by a function of the same name defined
+in `builtins/mod.rs`.
+
+`(wrong-type-error WANTED FOUND)` takes two type descriptors, the
+desired type and the type passed.
+
+`(wrong-arg-count-error FOUND MIN &optional MAX)` takes 2-3 natnums,
+the number of arguments passed, the minimum number desired, and
+optionally the maximum number allowed.
+
+`(improper-list-error)` takes no parameters and signals that an
+improperly terminated list was found where a `nil`-terminated one was
+expected.
+
+`(unbound-symbol-error SYM)` takes a single argument, the name of a
+symbol (which is evaluated and thus will be quoted in most cases)
+which was found to be unbound when it should have had a value.
+
+The general function `(error KIND &rest INFO)` creates an error with
+the `error-name` `KIND`. I recommend using symbols for `KIND` rather
+than strings, as `eq`-comparing strings is undefined behavior. Any objects can be `INFO`s, and currently they are just printed in the REPL and otherwise unused.
+
 ### Current functions and special forms:
 
 #### Special forms:
@@ -123,6 +206,12 @@ functions don't get to do that!)
 + `if`
 + `defun`
 + `defvar`
++ `catch-error` - 
++ `lambda`
++ `check-type`
++ `get`
++ `set`
++ `make-namespace`
 
 #### Functions defined in `builtins/mod.rs`:
 
@@ -132,6 +221,42 @@ functions don't get to do that!)
 + `list`
 + `debug` - prints debug information on the object passed
 + `print` - pretty-prints all arguments passed to it
++ `eq` - pointer/numeric equality
++ `wrong-type-error`
++ `wrong-arg-count-error`
++ `improper-list-error`
++ `unbound-symbol-error`
++ `error`
++ `global-namespace`
+
+#### Variables defined in `builtins/mod.rs`:
+
++ `+pi+`
++ `+e+`
++ `+sqrt2+`
++ `+ln2+`
++ `+ln10+`
++ `+log2-e+` - the log base 2 of e
++ `+lge+` - the log base 10 of e
++ `+1/pi+`
++ `+2/pi+`
++ `+pi/2+`
++ `+pi/3+`
++ `+pi/4+`
++ `+pi/6+`
++ `+pi/8+`
++ `+1/sqrt2+`
++ `+infinity+`
++ `+-infinity+`
++ `+epsilon+`
++ `+min-num+`
++ `+max-num+`
++ `+nan+`
++ `+min-integer+`
++ `+max-integer+`
++ `+min-natnum+`
++ `+max-natnum+`
+
 
 #### Functions defined in `math/mod.rs`:
 
@@ -142,6 +267,8 @@ functions don't get to do that!)
 + `/`
 + `<`
 + `<=`
++ `>`
++ `>=`
 + `rem`
 + `mod`
 + `trunc`
@@ -149,3 +276,4 @@ functions don't get to do that!)
 + `ceil`
 + `round`
 + `integerp`
++ `natnump`
