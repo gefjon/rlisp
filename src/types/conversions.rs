@@ -226,3 +226,35 @@ impl FromObject for *mut Namespace {
         RlispType::Namespace
     }
 }
+
+impl MaybeFrom<Object> for &'static mut Namespace {
+    fn maybe_from(obj: Object) -> Option<Self> {
+        if let Object::Namespace(n) = obj {
+            Some(unsafe { &mut *n })
+        } else {
+            None
+        }
+    }
+}
+
+impl FromObject for &'static mut Namespace {
+    fn rlisp_type() -> RlispType {
+        RlispType::Namespace
+    }
+}
+
+impl MaybeFrom<Object> for &'static Namespace {
+    fn maybe_from(obj: Object) -> Option<Self> {
+        if let Object::Namespace(n) = obj {
+            Some(unsafe { &*n })
+        } else {
+            None
+        }
+    }
+}
+
+impl FromObject for &'static Namespace {
+    fn rlisp_type() -> RlispType {
+        RlispType::Namespace
+    }
+}

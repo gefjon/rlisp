@@ -23,6 +23,14 @@ impl convert::From<HashMap<*const Symbol, Object>> for Namespace {
 }
 
 impl Namespace {
+    pub fn with_name(mut self, name: Object) -> Self {
+        self.name = Some(name);
+        self
+    }
+    pub fn with_maybe_name(mut self, name: Option<Object>) -> Self {
+        self.name = name;
+        self
+    }
     pub fn iter(&self) -> collections::hash_map::Iter<*const Symbol, Object> {
         self.table.iter()
     }

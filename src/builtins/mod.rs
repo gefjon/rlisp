@@ -316,6 +316,92 @@ pub fn make_special_forms() -> RlispSpecialForms {
                 res
             }
         },
+        "get" (namespace symbol) -> {
+            let n_args = pop_bubble!(l);
+            if n_args != Object::from(2.0) {
+                l.alloc(RlispError::bad_args_count(
+                    n_args,
+                    Object::from(2.0),
+                    Object::from(2.0)
+                ))
+            } else {
+                let namespace = l.pop();
+                if <&'static RlispError as FromObject>::is_type(namespace) {
+                    let _ = l.pop();
+                    return namespace;
+                }
+                let symbol = pop_bubble!(l);
+                let namespace = l.evaluate(namespace);
+                bubble!(namespace);
+                let namespace = into_type_or_error!(l : namespace => &'static Namespace);
+                let symbol = into_type_or_error!(l : symbol => *const Symbol);
+                if let Some(obj) = namespace.get(&symbol) {
+                    *obj
+                } else {
+                    l.alloc(RlispError::unbound_symbol(Object::from(symbol)))
+                }
+            }
+        },
+        "set" (namespace symbol value) -> {
+            let n_args = pop_bubble!(l);
+            if n_args != Object::from(3.0) {
+                l.alloc(RlispError::bad_args_count(
+                    n_args,
+                    Object::from(3.0),
+                    Object::from(3.0)
+                ))
+            } else {
+                let namespace = l.pop();
+                if <&'static RlispError as FromObject>::is_type(namespace) {
+                    let _ = l.pop();
+                    let _ = l.pop();
+                    return namespace;
+                }
+                let symbol = l.pop();
+                if <&'static RlispError as FromObject>::is_type(symbol) {
+                    let _ = l.pop();
+                    return symbol;
+                }
+                let value = pop_bubble!(l);
+                let namespace = l.evaluate(namespace);
+                bubble!(namespace);
+                let value = l.evaluate(value);
+                bubble!(value);
+                let namespace = into_type_or_error!(l : namespace => &'static mut Namespace);
+                let symbol = into_type_or_error!(l : symbol => *const Symbol);
+                if let Some(obj) = namespace.insert(symbol, value) {
+                    obj
+                } else {
+                    Object::nil()
+                }
+            }
+        },
+        "make-namespace" (&optional name) -> {
+            let n_args = pop_bubble!(l);
+            let arg_ct: u32 = unsafe { n_args.into_unchecked() };
+            if arg_ct > 1 {
+                l.alloc(RlispError::bad_args_count(
+                    n_args,
+                    Object::from(0.0),
+                    Object::from(1.0)
+                ))
+            } else {
+                let name = if arg_ct == 1 {
+                    Some(pop_bubble!(l))
+                } else {
+                    None
+                };
+                let namespace = Namespace::default()
+                    .with_maybe_name(name);
+                let namespace = l.alloc(namespace);
+                if let Some(name) = name {
+                    if let Some(sym) = <*const Symbol>::maybe_from(name) {
+                        l.set_symbol(sym, namespace);
+                    }
+                }
+                namespace
+            }
+        },
     }
 }
 
@@ -374,6 +460,9 @@ pub fn make_builtins() -> RlispBuiltins {
         "error" (kind &rest info) -> {
             l.alloc(RlispError::custom(kind, info))
         },
+        "global-namespace" () -> {
+            Object::from(l.symbols[0])
+        }
     }
 }
 

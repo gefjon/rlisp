@@ -119,7 +119,8 @@ impl Default for Lisp {
             alloced_objects: Vec::new(),
             gc_threshold: 16,
         };
-        let global_namespace = me.alloc(Namespace::default());
+        let global_namespace_name = me.alloc_sym("global-namespace");
+        let global_namespace = me.alloc(Namespace::default().with_name(global_namespace_name));
         let global_namespace = unsafe { global_namespace.into_unchecked() };
         me.push_namespace(global_namespace);
         me.source_builtin_vars(builtins::builtin_vars());
