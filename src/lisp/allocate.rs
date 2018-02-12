@@ -26,15 +26,28 @@ pub trait AllocObject {
         obj
     }
     unsafe fn dealloc(&mut self, to_dealloc: Object) {
+        use types::conversions::FromUnchecked;
         // deallocate an object
-        match to_dealloc {
-            Object::Num(_) | Object::Bool(_) => debug!("deallocating {} is a no-op", to_dealloc),
-            Object::Cons(c) => self.low_level_dealloc(c),
-            Object::Sym(s) => self.dealloc_sym(s as _),
-            Object::String(s) => self.dealloc_string(s as _),
-            Object::Function(f) => self.low_level_dealloc(f),
-            Object::Error(e) => self.low_level_dealloc(e),
-            Object::Namespace(n) => self.low_level_dealloc(n as *const Namespace),
+        match to_dealloc.what_type() {
+            RlispType::Num | RlispType::NatNum | RlispType::Integer | RlispType::Bool => {
+                warn!("attempt to dealloc a by-value object")
+            }
+            RlispType::Cons => {
+                self.low_level_dealloc(<*const ConsCell>::from_unchecked(to_dealloc))
+            }
+            RlispType::Sym => self.low_level_dealloc(<*const Symbol>::from_unchecked(to_dealloc)),
+            RlispType::String => {
+                self.low_level_dealloc(<*const RlispString>::from_unchecked(to_dealloc))
+            }
+            RlispType::Function => {
+                self.low_level_dealloc(<*const RlispFunc>::from_unchecked(to_dealloc))
+            }
+            RlispType::Error => {
+                self.low_level_dealloc(<*const RlispError>::from_unchecked(to_dealloc))
+            }
+            RlispType::Namespace => {
+                self.low_level_dealloc(<*const Namespace>::from_unchecked(to_dealloc))
+            }
         }
     }
     unsafe fn low_level_dealloc<T>(&mut self, to_dealloc: *const T) {

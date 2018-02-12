@@ -137,14 +137,14 @@ impl ConsIterator {
             self.first = false;
             ConsIteratorResult::More(self.car)
         } else {
-            match self.cdr {
-                Object::Cons(next) => {
-                    self.car = unsafe { (*next).car };
-                    self.cdr = unsafe { (*next).cdr };
-                    ConsIteratorResult::More(self.car)
-                }
-                Object::Bool(false) => ConsIteratorResult::Final(None),
-                other => ConsIteratorResult::Final(Some(other)),
+            if let Some(next) = <&ConsCell>::maybe_from(self.cdr) {
+                self.car = next.car;
+                self.cdr = next.cdr;
+                ConsIteratorResult::More(self.car)
+            } else if self.cdr.nilp() {
+                ConsIteratorResult::Final(None)
+            } else {
+                ConsIteratorResult::Final(Some(self.cdr))
             }
         }
     }

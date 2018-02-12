@@ -454,7 +454,7 @@ pub fn make_builtins() -> RlispBuiltins {
             l.alloc(RlispError::improper_list())
         },
         "unbound-symbol-error" (sym) -> {
-            let _ = into_type_or_error!(l : sym => &'static mut Symbol);
+            let _ = into_type_or_error!(l : sym => &'static Symbol);
             l.alloc(RlispError::unbound_symbol(sym))
         },
         "error" (kind &rest info) -> {

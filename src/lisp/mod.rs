@@ -59,6 +59,7 @@ pub struct Lisp {
 
 impl Lisp {
     fn source_builtins(&mut self, mut builtin_funcs: builtins::RlispBuiltins) {
+        info!("sourcing builtin functions");
         use lisp::allocate::AllocObject;
         use list::ListOps;
         for (name, mut arglist, fun) in builtin_funcs.drain(..) {
@@ -79,6 +80,7 @@ impl Lisp {
         }
     }
     fn source_special_forms(&mut self, mut special_forms: builtins::RlispSpecialForms) {
+        info!("sourcing special forms");
         use lisp::allocate::AllocObject;
         use list::ListOps;
         for (name, mut arglist, fun) in special_forms.drain(..) {
@@ -99,16 +101,20 @@ impl Lisp {
         }
     }
     fn source_builtin_vars(&mut self, mut builtin_vars: builtins::RlispBuiltinVars) {
+        info!("sourcing builtin vars");
         for (name, val) in builtin_vars.drain(..) {
-            let name = self.make_symbol(name);
-            let val = self.convert_into_object(val);
-            self.set_symbol(name, val)
+            debug!("sourcing var {}", name);
+            let sym = self.make_symbol(name.clone());
+            let obj = self.convert_into_object(val);
+            debug!("{} has value {}", name, obj);
+            self.set_symbol(sym, obj)
         }
     }
 }
 
 impl Default for Lisp {
     fn default() -> Self {
+        info!("building default lisp");
         use lisp::allocate::AllocObject;
         let mut me = Self {
             symbols: vec![],
@@ -121,7 +127,7 @@ impl Default for Lisp {
         };
         let global_namespace_name = me.alloc_sym("global-namespace");
         let global_namespace = me.alloc(Namespace::default().with_name(global_namespace_name));
-        let global_namespace = unsafe { global_namespace.into_unchecked() };
+        let global_namespace = unsafe { <*mut Namespace>::from_unchecked(global_namespace) };
         me.push_namespace(global_namespace);
         me.source_builtin_vars(builtins::builtin_vars());
         me.source_special_forms(builtins::make_special_forms());

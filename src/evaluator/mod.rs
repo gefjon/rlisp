@@ -24,15 +24,17 @@ pub trait Evaluator
             input
         );
         self.push(input); // push `input` to the stack so that the gc doesn't get rid of it
-        let res = match input {
-            Object::Sym(s) => unsafe { self.get_symbol(s) },
-            Object::Cons(c) => self.eval_list(c),
-            Object::Bool(_)
-            | Object::String(_)
-            | Object::Num(_)
-            | Object::Function(_)
-            | Object::Error(_)
-            | Object::Namespace(_) => input, // the majority of types evaluate to themselves
+        let res = match input.what_type() {
+            RlispType::Sym => unsafe { self.get_symbol(<*const Symbol>::from_unchecked(input)) },
+            RlispType::Cons => self.eval_list(unsafe { <&ConsCell>::from_unchecked(input) }),
+            RlispType::Num
+            | RlispType::NatNum
+            | RlispType::Integer
+            | RlispType::Bool
+            | RlispType::String
+            | RlispType::Function
+            | RlispType::Error
+            | RlispType::Namespace => input,
         };
         self.gc_maybe_pass();
         debug!("{} evaluated to {}", input, res);

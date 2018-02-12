@@ -11,7 +11,7 @@ implement FnMut, and those types could in the future could be changed
 to *mut T, but for now they are *const for consistence.
 */
 use result::*;
-use std::{cmp, convert, fmt};
+use std::{cmp, convert, fmt, mem};
 use std::default::Default;
 use std::boxed::Box;
 use gc::GarbageCollected;
@@ -39,16 +39,72 @@ use self::conversions::*;
 
 pub mod into_object;
 
+const NAN_MASK: u64 = 0b111_1111_1111 << 52;
+const MAX_PTR: u64 = 1 << 48;
+const OBJECT_TAG_MASK: u64 = 0b1111 << 48;
+
 #[derive(Copy, Clone)]
-pub enum Object {
-    Cons(*const ConsCell),
-    Num(f64),
-    Sym(*const Symbol),
-    String(*const RlispString),
-    Function(*const RlispFunc),
-    Error(*const RlispError),
-    Namespace(*mut Namespace),
-    Bool(bool),
+pub struct Object(u64);
+
+// #[derive(Copy, Clone)]
+// pub enum Object {
+//     Cons(*const ConsCell),
+//     Num(f64),
+//     Sym(*const Symbol),
+//     String(*const RlispString),
+//     Function(*const RlispFunc),
+//     Error(*const RlispError),
+//     Namespace(*mut Namespace),
+//     Bool(bool),
+// }
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+enum ObjectTag {
+    Cons,
+    Sym,
+    String,
+    Function,
+    Error,
+    Namespace,
+    Bool,
+}
+
+impl convert::From<ObjectTag> for u64 {
+    fn from(t: ObjectTag) -> u64 {
+        ((t as u64) << 48)
+    }
+}
+
+impl ObjectTag {
+    fn tag_ptr(self, ptr: u64) -> u64 {
+        debug_assert!(ptr < MAX_PTR);
+        let tagged = u64::from(self) ^ NAN_MASK ^ ptr;
+        debug!("tagged the {:?}*\n{:#066b} as\n{:#066b}", self, ptr, tagged);
+        tagged
+    }
+    fn is_of_type(self, ptr: u64) -> bool {
+        let res = !Object::numberp(Object(ptr)) && (ptr & OBJECT_TAG_MASK) == u64::from(self);
+        if res {
+            debug!("{:#066b} is of type {:?}*", ptr, self);
+        } else {
+            debug!("{:#066b} is not of type {:?}*", ptr, self);
+        }
+        debug!(
+            "{:#066b} is the mask associated with type {:?}*",
+            u64::from(self),
+            self
+        );
+        res
+    }
+    fn untag(self, ptr: u64) -> u64 {
+        debug_assert!(self.is_of_type(ptr));
+        let untagged = ptr & !(u64::from(self) ^ NAN_MASK);
+        debug!(
+            "untagged the {:?}*\n{:#066b} as \n{:#066b}",
+            self, ptr, untagged
+        );
+        untagged
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -66,34 +122,41 @@ pub enum RlispType {
 }
 
 impl Object {
+    fn the_nan() -> u64 {
+        unsafe { mem::transmute(::std::f64::NAN) }
+    }
+    fn nanp(self) -> bool {
+        self.0 == Self::the_nan()
+    }
+    fn infinityp(self) -> bool {
+        self.0 == unsafe { mem::transmute(::std::f64::INFINITY) } || self.0 == unsafe {
+            mem::transmute(::std::f64::NEG_INFINITY)
+        }
+    }
     pub fn nil() -> Self {
         // returns the object which the symbol `nil` evauluates to
-        Object::Bool(false)
+        Object(ObjectTag::Bool.tag_ptr(0))
     }
     pub fn t() -> Self {
         // returns the object which the symbol `t` evaluates to
-        Object::Bool(true)
+        Object(ObjectTag::Bool.tag_ptr(1))
     }
     pub fn boolp(self) -> bool {
         // true if self is a bool. note that any object can be cast to
         // bool, and every object other than `nil` evaluates to true,
         // but that this method treats only exactly `t` and `nil` as
         // bools, and returns false for any other Object.
-        if let Object::Bool(_) = self {
-            true
-        } else {
-            false
-        }
+        ObjectTag::Bool.is_of_type(self.0)
     }
     pub fn symbolp(self) -> bool {
-        if let Object::Sym(_) = self {
-            true
-        } else {
-            false
-        }
+        ObjectTag::Sym.is_of_type(self.0)
     }
     pub fn numberp(self) -> bool {
-        if let Object::Num(_) = self {
+        if self.0 & NAN_MASK != NAN_MASK {
+            true
+        } else if self.nanp() {
+            true
+        } else if self.infinityp() {
             true
         } else {
             false
@@ -104,47 +167,54 @@ impl Object {
         // list. listp is a more expensive (and as yet unimplemented)
         // operation which involves traversing the list to check that
         // it is nil-terminated.
-        if let Object::Cons(_) = self {
-            true
-        } else {
-            false
-        }
+        ObjectTag::Cons.is_of_type(self.0)
     }
     pub fn stringp(self) -> bool {
-        if let Object::String(_) = self {
-            true
-        } else {
-            false
-        }
+        ObjectTag::String.is_of_type(self.0)
     }
     pub fn functionp(self) -> bool {
-        if let Object::Function(_) = self {
-            true
-        } else {
-            false
-        }
+        ObjectTag::Function.is_of_type(self.0)
+    }
+    pub fn errorp(self) -> bool {
+        ObjectTag::Error.is_of_type(self.0)
+    }
+    pub fn namespacep(self) -> bool {
+        ObjectTag::Namespace.is_of_type(self.0)
     }
     pub fn nilp(self) -> bool {
         // the logical inverse of casting an Object to bool; true iff
         // self == Object::nil().
-        if let Object::Bool(false) = self {
-            true
+        if let Some(b) = bool::maybe_from(self) {
+            !b
         } else {
             false
         }
     }
     pub fn what_type(self) -> RlispType {
-        // this is basically a cleaner version of mem::discriminant
-        // for Objects
-        match self {
-            Object::Cons(_) => RlispType::Cons,
-            Object::Num(_) => RlispType::Num,
-            Object::Sym(_) => RlispType::Sym,
-            Object::String(_) => RlispType::String,
-            Object::Function(_) => RlispType::Function,
-            Object::Bool(_) => RlispType::Bool,
-            Object::Error(_) => RlispType::Error,
-            Object::Namespace(_) => RlispType::Namespace,
+        if self.numberp() {
+            if unsafe { ::math::natnump(f64::from_unchecked(self)) } {
+                RlispType::NatNum
+            } else if unsafe { ::math::integerp(f64::from_unchecked(self)) } {
+                RlispType::Integer
+            } else {
+                RlispType::Num
+            }
+        } else if self.consp() {
+            RlispType::Cons
+        } else if self.symbolp() {
+            RlispType::Sym
+        } else if self.stringp() {
+            RlispType::String
+        } else if self.functionp() {
+            RlispType::Function
+        } else if self.boolp() {
+            RlispType::Bool
+        } else if self.errorp() {
+            RlispType::Error
+        } else if self.namespacep() {
+            RlispType::Namespace
+        } else {
+            unreachable!()
         }
     }
     pub fn gc_mark(self, marking: ::gc::GcMark) {
@@ -153,57 +223,97 @@ impl Object {
         // method and should_dealloc which mimic
         // GarbageCollected::{gc_mark, should_dealloc} and are called
         // by various types' gc_mark_children methods.
-        match self {
-            Object::Num(_) | Object::Bool(_) => (),
-            Object::Cons(c) => unsafe { (*(c as *mut ConsCell)).gc_mark(marking) },
-            Object::Sym(s) => unsafe { (*(s as *mut Symbol)).gc_mark(marking) },
-            Object::String(s) => unsafe { (&mut *(s as *mut RlispString)).gc_mark(marking) },
-            Object::Function(f) => unsafe { (*(f as *mut RlispFunc)).gc_mark(marking) },
-            Object::Error(e) => unsafe { (*(e as *mut RlispError)).gc_mark(marking) },
-            Object::Namespace(n) => unsafe { (*n).gc_mark(marking) },
+        unsafe {
+            match self.what_type() {
+                RlispType::Num | RlispType::NatNum | RlispType::Integer | RlispType::Bool => (),
+                RlispType::Cons => {
+                    <&mut ConsCell>::from_unchecked(self).gc_mark(marking);
+                }
+                RlispType::Sym => {
+                    <&mut Symbol>::from_unchecked(self).gc_mark(marking);
+                }
+                RlispType::String => {
+                    <&mut RlispString>::from_unchecked(self).gc_mark(marking);
+                }
+                RlispType::Function => {
+                    <&mut RlispFunc>::from_unchecked(self).gc_mark(marking);
+                }
+                RlispType::Error => {
+                    <&mut RlispError>::from_unchecked(self).gc_mark(marking);
+                }
+                RlispType::Namespace => {
+                    <&mut Namespace>::from_unchecked(self).gc_mark(marking);
+                }
+            }
         }
     }
-    pub fn should_dealloc(self, current_marking: ::gc::GcMark) -> bool {
-        match self {
-            Object::Num(_) | Object::Bool(_) => false,
-            Object::Sym(s) => unsafe { (*s).should_dealloc(current_marking) },
-            Object::Cons(c) => unsafe { (*c).should_dealloc(current_marking) },
-            Object::String(s) => unsafe { (*s).should_dealloc(current_marking) },
-            Object::Function(f) => unsafe { (*f).should_dealloc(current_marking) },
-            Object::Error(e) => unsafe { (*e).should_dealloc(current_marking) },
-            Object::Namespace(n) => unsafe { (*n).should_dealloc(current_marking) },
+    pub fn should_dealloc(self, marking: ::gc::GcMark) -> bool {
+        unsafe {
+            match self.what_type() {
+                RlispType::Num | RlispType::NatNum | RlispType::Integer | RlispType::Bool => false,
+                RlispType::Cons => <&mut ConsCell>::from_unchecked(self).should_dealloc(marking),
+                RlispType::Sym => <&mut Symbol>::from_unchecked(self).should_dealloc(marking),
+                RlispType::String => {
+                    <&mut RlispString>::from_unchecked(self).should_dealloc(marking)
+                }
+                RlispType::Function => {
+                    <&mut RlispFunc>::from_unchecked(self).should_dealloc(marking)
+                }
+                RlispType::Error => <&mut RlispError>::from_unchecked(self).should_dealloc(marking),
+                RlispType::Namespace => {
+                    <&mut Namespace>::from_unchecked(self).should_dealloc(marking)
+                }
+            }
         }
     }
 }
 
 impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Object::Bool(false) => write!(f, "nil"),
-            Object::Bool(true) => write!(f, "t"),
-            Object::Num(n) => write!(f, "{}", n),
-            Object::Sym(s) => unsafe { write!(f, "{}", *s) },
-            Object::Cons(c) => unsafe { write!(f, "{}", *c) },
-            Object::String(s) => unsafe { write!(f, "{}", &*s) },
-            Object::Function(func) => unsafe { write!(f, "{}", *func) },
-            Object::Error(e) => unsafe { write!(f, "{}", *e) },
-            Object::Namespace(n) => unsafe { write!(f, "{}", *n) },
+        unsafe {
+            match self.what_type() {
+                RlispType::Num | RlispType::NatNum | RlispType::Integer => {
+                    write!(f, "{}", f64::from_unchecked(*self))
+                }
+                RlispType::Bool => {
+                    if self.nilp() {
+                        write!(f, "nil")
+                    } else {
+                        write!(f, "t")
+                    }
+                }
+                RlispType::Cons => write!(f, "{}", <&ConsCell>::from_unchecked(*self)),
+                RlispType::Sym => write!(f, "{}", <&Symbol>::from_unchecked(*self)),
+                RlispType::String => write!(f, "{}", <&RlispString>::from_unchecked(*self)),
+                RlispType::Function => write!(f, "{}", <&RlispFunc>::from_unchecked(*self)),
+                RlispType::Error => write!(f, "{}", <&RlispError>::from_unchecked(*self)),
+                RlispType::Namespace => write!(f, "{}", <&Namespace>::from_unchecked(*self)),
+            }
         }
     }
 }
 
 impl fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Object::Bool(false) => write!(f, "nil"),
-            Object::Bool(true) => write!(f, "t"),
-            Object::Num(n) => write!(f, "{}", n),
-            Object::Sym(s) => unsafe { write!(f, "{}", *s) },
-            Object::Cons(c) => unsafe { write!(f, "{:?}", *c) },
-            Object::String(s) => unsafe { write!(f, "{:?}", &*s) },
-            Object::Function(func) => unsafe { write!(f, "{:?}", *func) },
-            Object::Error(e) => unsafe { write!(f, "{}", *e) },
-            Object::Namespace(n) => unsafe { write!(f, "{:?}", *n) },
+        unsafe {
+            match self.what_type() {
+                RlispType::Num | RlispType::NatNum | RlispType::Integer => {
+                    write!(f, "{}", f64::from_unchecked(*self))
+                }
+                RlispType::Bool => {
+                    if self.nilp() {
+                        write!(f, "nil")
+                    } else {
+                        write!(f, "t")
+                    }
+                }
+                RlispType::Cons => write!(f, "{:?}", <&ConsCell>::from_unchecked(*self)),
+                RlispType::Sym => write!(f, "{}", <&Symbol>::from_unchecked(*self)),
+                RlispType::String => write!(f, "{:?}", <&RlispString>::from_unchecked(*self)),
+                RlispType::Function => write!(f, "{:?}", <&RlispFunc>::from_unchecked(*self)),
+                RlispType::Error => write!(f, "{}", <&RlispError>::from_unchecked(*self)),
+                RlispType::Namespace => write!(f, "{:?}", <&Namespace>::from_unchecked(*self)),
+            }
         }
     }
 }
@@ -211,92 +321,81 @@ impl fmt::Debug for Object {
 impl Default for Object {
     // the default Object is `t`
     fn default() -> Self {
-        Object::Bool(true)
+        Object::t()
     }
 }
 
 impl convert::From<Object> for bool {
-    // in a lisp, every Object except `nil` evaluates true
+    // all values except `nil` and errors evaluate to true
     fn from(obj: Object) -> bool {
-        !(obj.nilp() && <&RlispError as FromObject>::is_type(obj))
+        !(obj.nilp() && ObjectTag::Error.is_of_type(obj.0))
     }
 }
 
 impl convert::From<*const RlispString> for Object {
-    fn from(string: *const RlispString) -> Self {
-        Object::String(string)
+    fn from(ptr: *const RlispString) -> Self {
+        let ptr = ptr as u64;
+        Object(ObjectTag::String.tag_ptr(ptr))
     }
 }
 
 impl convert::From<*const ConsCell> for Object {
-    fn from(cons: *const ConsCell) -> Self {
-        Object::Cons(cons)
+    fn from(ptr: *const ConsCell) -> Self {
+        let ptr = ptr as u64;
+        Object(ObjectTag::Cons.tag_ptr(ptr))
     }
 }
 
 impl convert::From<*const Symbol> for Object {
-    fn from(sym: *const Symbol) -> Self {
-        Object::Sym(sym)
+    fn from(ptr: *const Symbol) -> Self {
+        let ptr = ptr as u64;
+        Object(ObjectTag::Sym.tag_ptr(ptr))
     }
 }
 
 impl convert::From<*const RlispFunc> for Object {
-    fn from(func: *const RlispFunc) -> Self {
-        Object::Function(func)
+    fn from(ptr: *const RlispFunc) -> Self {
+        let ptr = ptr as u64;
+        Object(ObjectTag::Function.tag_ptr(ptr))
     }
 }
 
 impl convert::From<*const RlispError> for Object {
-    fn from(err: *const RlispError) -> Self {
-        Object::Error(err)
+    fn from(ptr: *const RlispError) -> Self {
+        let ptr = ptr as u64;
+        Object(ObjectTag::Error.tag_ptr(ptr))
     }
 }
 
-impl convert::From<*mut RlispString> for Object {
-    fn from(string: *mut RlispString) -> Self {
-        Object::String(string as _)
+impl convert::From<*const Namespace> for Object {
+    fn from(ptr: *const Namespace) -> Self {
+        let ptr = ptr as u64;
+        Object(ObjectTag::Namespace.tag_ptr(ptr))
     }
 }
 
-impl convert::From<*mut ConsCell> for Object {
-    fn from(cons: *mut ConsCell) -> Self {
-        Object::Cons(cons as _)
-    }
-}
-
-impl convert::From<*mut Symbol> for Object {
-    fn from(sym: *mut Symbol) -> Self {
-        Object::Sym(sym as _)
-    }
-}
-
-impl convert::From<*mut RlispFunc> for Object {
-    fn from(func: *mut RlispFunc) -> Self {
-        Object::Function(func as _)
-    }
-}
-
-impl convert::From<*mut RlispError> for Object {
-    fn from(err: *mut RlispError) -> Self {
-        Object::Error(err as _)
-    }
-}
-
-impl convert::From<*mut Namespace> for Object {
-    fn from(nmspc: *mut Namespace) -> Self {
-        Object::Namespace(nmspc)
+impl<T> convert::From<*mut T> for Object
+where
+    Object: convert::From<*const T>,
+{
+    fn from(ptr: *mut T) -> Self {
+        Object::from(ptr as *const T)
     }
 }
 
 impl convert::From<bool> for Object {
     fn from(b: bool) -> Self {
-        Object::Bool(b)
+        if b {
+            Object::t()
+        } else {
+            Object::nil()
+        }
     }
 }
 
 impl convert::From<f64> for Object {
     fn from(num: f64) -> Self {
-        Object::Num(num)
+        Object(unsafe { mem::transmute(num) })
     }
 }
 
@@ -318,20 +417,18 @@ impl convert::From<i32> for Object {
 
 impl cmp::PartialEq for Object {
     fn eq(&self, other: &Object) -> bool {
-        if let (&Object::Cons(lhs), &Object::Cons(rhs)) = (self, other) {
-            lhs == rhs
-        } else if let (&Object::Num(lhs), &Object::Num(rhs)) = (self, other) {
-            lhs == rhs
-        } else if let (&Object::Sym(lhs), &Object::Sym(rhs)) = (self, other) {
-            lhs == rhs
-        } else if let (&Object::String(lhs), &Object::String(rhs)) = (self, other) {
-            lhs == rhs
-        } else if let (&Object::Function(lhs), &Object::Function(rhs)) = (self, other) {
-            lhs == rhs
-        } else if let (&Object::Bool(lhs), &Object::Bool(rhs)) = (self, other) {
-            lhs == rhs
-        } else {
-            false
-        }
+        self.0 == other.0
+    }
+}
+
+impl cmp::Eq for Object {}
+
+#[cfg(test)]
+mod test {
+    use types::*;
+    #[test]
+    fn print_a_number() {
+        let one = Object::from(1.0);
+        println!("{}", one);
     }
 }

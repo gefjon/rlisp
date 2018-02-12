@@ -1,4 +1,5 @@
 use types::*;
+use std::mem;
 
 pub trait MaybeFrom<T>: Sized {
     fn maybe_from(t: T) -> Option<Self>;
@@ -15,12 +16,17 @@ pub trait FromUnchecked<T> {
     unsafe fn from_unchecked(obj: T) -> Self;
 }
 
-impl<O, T: MaybeFrom<O>> FromUnchecked<O> for T {
+impl<O, T: MaybeFrom<O>> FromUnchecked<O> for T
+where
+    T: MaybeFrom<O>,
+    O: Copy,
+    O: ::std::fmt::Debug,
+{
     unsafe fn from_unchecked(o: O) -> T {
         if let Some(t) = T::maybe_from(o) {
             t
         } else {
-            panic!("FromUnchecked failed")
+            panic!("FromUnchecked failed converting {:?}", o)
         }
     }
 }
@@ -39,20 +45,26 @@ pub trait IntoUnchecked<T> {
     unsafe fn into_unchecked(self) -> T;
 }
 
-impl<T, O: MaybeInto<T>> IntoUnchecked<T> for O {
+impl<T, O> IntoUnchecked<T> for O
+where
+    O: MaybeInto<T>,
+    O: ::std::fmt::Debug,
+    O: ::std::marker::Copy,
+{
     unsafe fn into_unchecked(self) -> T {
         if let Some(t) = self.maybe_into() {
             t
         } else {
-            panic!("MaybeInto failed")
+            panic!("MaybeInto failed converting {:?}", self)
         }
     }
 }
 
 impl MaybeFrom<Object> for &'static ConsCell {
     fn maybe_from(obj: Object) -> Option<&'static ConsCell> {
-        if let Object::Cons(ptr) = obj {
-            Some(unsafe { &(*ptr) })
+        if obj.consp() {
+            let ptr = ObjectTag::Cons.untag(obj.0);
+            Some(unsafe { &*(ptr as *const ConsCell) })
         } else {
             None
         }
@@ -65,10 +77,44 @@ impl FromObject for &'static ConsCell {
     }
 }
 
+impl MaybeFrom<Object> for *const ConsCell {
+    fn maybe_from(obj: Object) -> Option<Self> {
+        if obj.consp() {
+            let ptr = ObjectTag::Cons.untag(obj.0);
+            Some(ptr as *const ConsCell)
+        } else {
+            None
+        }
+    }
+}
+
+impl FromObject for *const ConsCell {
+    fn rlisp_type() -> RlispType {
+        RlispType::Cons
+    }
+}
+
+impl MaybeFrom<Object> for &'static mut ConsCell {
+    fn maybe_from(obj: Object) -> Option<&'static mut ConsCell> {
+        if obj.consp() {
+            let ptr = ObjectTag::Cons.untag(obj.0);
+            Some(unsafe { &mut *(ptr as *mut ConsCell) })
+        } else {
+            None
+        }
+    }
+}
+
+impl FromObject for &'static mut ConsCell {
+    fn rlisp_type() -> RlispType {
+        RlispType::Cons
+    }
+}
+
 impl MaybeFrom<Object> for f64 {
     fn maybe_from(obj: Object) -> Option<f64> {
-        if let Object::Num(num) = obj {
-            Some(num)
+        if obj.numberp() {
+            Some(unsafe { mem::transmute(obj.0) })
         } else {
             None
         }
@@ -81,10 +127,28 @@ impl FromObject for f64 {
     }
 }
 
+impl MaybeFrom<Object> for &'static Symbol {
+    fn maybe_from(obj: Object) -> Option<Self> {
+        if obj.symbolp() {
+            let ptr = ObjectTag::Sym.untag(obj.0);
+            Some(unsafe { &*(ptr as *const Symbol) })
+        } else {
+            None
+        }
+    }
+}
+
+impl FromObject for &'static Symbol {
+    fn rlisp_type() -> RlispType {
+        RlispType::Sym
+    }
+}
+
 impl MaybeFrom<Object> for &'static mut Symbol {
     fn maybe_from(obj: Object) -> Option<Self> {
-        if let Object::Sym(ptr) = obj {
-            Some(unsafe { &mut (*(ptr as *mut Symbol)) })
+        if obj.symbolp() {
+            let ptr = ObjectTag::Sym.untag(obj.0);
+            Some(unsafe { &mut *(ptr as *mut Symbol) })
         } else {
             None
         }
@@ -99,8 +163,9 @@ impl FromObject for &'static mut Symbol {
 
 impl MaybeFrom<Object> for *const Symbol {
     fn maybe_from(obj: Object) -> Option<Self> {
-        if let Object::Sym(ptr) = obj {
-            Some(ptr)
+        if obj.symbolp() {
+            let ptr = ObjectTag::Sym.untag(obj.0);
+            Some(ptr as *const Symbol)
         } else {
             None
         }
@@ -115,19 +180,60 @@ impl FromObject for *const Symbol {
 
 impl MaybeFrom<Object> for &'static RlispString {
     fn maybe_from(obj: Object) -> Option<Self> {
-        if let Object::String(ptr) = obj {
-            Some(unsafe { &(*ptr) })
+        if obj.stringp() {
+            let ptr = ObjectTag::String.untag(obj.0);
+            Some(unsafe { &*(ptr as *const RlispString) })
         } else {
             None
         }
     }
 }
 
+impl FromObject for &'static RlispString {
+    fn rlisp_type() -> RlispType {
+        RlispType::String
+    }
+}
+
+impl MaybeFrom<Object> for *const RlispString {
+    fn maybe_from(obj: Object) -> Option<Self> {
+        if obj.stringp() {
+            let ptr = ObjectTag::String.untag(obj.0);
+            Some(ptr as *const RlispString)
+        } else {
+            None
+        }
+    }
+}
+
+impl FromObject for *const RlispString {
+    fn rlisp_type() -> RlispType {
+        RlispType::String
+    }
+}
+
+impl MaybeFrom<Object> for &'static mut RlispString {
+    fn maybe_from(obj: Object) -> Option<Self> {
+        if obj.stringp() {
+            let ptr = ObjectTag::String.untag(obj.0);
+            Some(unsafe { &mut *(ptr as *mut RlispString) })
+        } else {
+            None
+        }
+    }
+}
+
+impl FromObject for &'static mut RlispString {
+    fn rlisp_type() -> RlispType {
+        RlispType::String
+    }
+}
+
 impl MaybeFrom<Object> for u32 {
     fn maybe_from(obj: Object) -> Option<Self> {
-        if let Object::Num(n) = obj {
+        if let Some(n) = f64::maybe_from(obj) {
             if ::math::natnump(n) {
-                return Some(n as _);
+                return Some(n as u32);
             }
         }
         None
@@ -142,9 +248,9 @@ impl FromObject for u32 {
 
 impl MaybeFrom<Object> for i32 {
     fn maybe_from(obj: Object) -> Option<Self> {
-        if let Object::Num(n) = obj {
+        if let Some(n) = f64::maybe_from(obj) {
             if ::math::integerp(n) {
-                return Some(n as _);
+                return Some(n as i32);
             }
         }
         None
@@ -157,16 +263,11 @@ impl FromObject for i32 {
     }
 }
 
-impl FromObject for &'static RlispString {
-    fn rlisp_type() -> RlispType {
-        RlispType::String
-    }
-}
-
 impl MaybeFrom<Object> for &'static mut RlispFunc {
     fn maybe_from(obj: Object) -> Option<Self> {
-        if let Object::Function(ptr) = obj {
-            Some(unsafe { &mut (*(ptr as *mut RlispFunc)) })
+        if obj.functionp() {
+            let ptr = ObjectTag::Function.untag(obj.0);
+            Some(unsafe { &mut *(ptr as *mut RlispFunc) })
         } else {
             None
         }
@@ -179,10 +280,45 @@ impl FromObject for &'static mut RlispFunc {
     }
 }
 
+impl MaybeFrom<Object> for *const RlispFunc {
+    fn maybe_from(obj: Object) -> Option<Self> {
+        if obj.functionp() {
+            let ptr = ObjectTag::Function.untag(obj.0);
+            Some(ptr as *const RlispFunc)
+        } else {
+            None
+        }
+    }
+}
+
+impl FromObject for *const RlispFunc {
+    fn rlisp_type() -> RlispType {
+        RlispType::Function
+    }
+}
+
+impl MaybeFrom<Object> for &'static RlispFunc {
+    fn maybe_from(obj: Object) -> Option<Self> {
+        if obj.functionp() {
+            let ptr = ObjectTag::Function.untag(obj.0);
+            Some(unsafe { &*(ptr as *const RlispFunc) })
+        } else {
+            None
+        }
+    }
+}
+
+impl FromObject for &'static RlispFunc {
+    fn rlisp_type() -> RlispType {
+        RlispType::Function
+    }
+}
+
 impl MaybeFrom<Object> for &'static RlispError {
     fn maybe_from(obj: Object) -> Option<Self> {
-        if let Object::Error(ptr) = obj {
-            Some(unsafe { &(*ptr) })
+        if obj.errorp() {
+            let ptr = ObjectTag::Error.untag(obj.0);
+            Some(unsafe { &*(ptr as *const RlispError) })
         } else {
             None
         }
@@ -195,10 +331,44 @@ impl FromObject for &'static RlispError {
     }
 }
 
+impl MaybeFrom<Object> for *const RlispError {
+    fn maybe_from(obj: Object) -> Option<Self> {
+        if obj.errorp() {
+            let ptr = ObjectTag::Error.untag(obj.0);
+            Some(ptr as *const RlispError)
+        } else {
+            None
+        }
+    }
+}
+
+impl FromObject for *const RlispError {
+    fn rlisp_type() -> RlispType {
+        RlispType::Error
+    }
+}
+
+impl MaybeFrom<Object> for &'static mut RlispError {
+    fn maybe_from(obj: Object) -> Option<Self> {
+        if obj.errorp() {
+            let ptr = ObjectTag::Error.untag(obj.0);
+            Some(unsafe { &mut *(ptr as *mut RlispError) })
+        } else {
+            None
+        }
+    }
+}
+
+impl FromObject for &'static mut RlispError {
+    fn rlisp_type() -> RlispType {
+        RlispType::Error
+    }
+}
+
 impl MaybeFrom<Object> for bool {
     fn maybe_from(obj: Object) -> Option<Self> {
-        if let Object::Bool(b) = obj {
-            Some(b)
+        if obj.boolp() {
+            Some(ObjectTag::Bool.untag(obj.0) != 0)
         } else {
             None
         }
@@ -213,8 +383,9 @@ impl FromObject for bool {
 
 impl MaybeFrom<Object> for *mut Namespace {
     fn maybe_from(obj: Object) -> Option<Self> {
-        if let Object::Namespace(n) = obj {
-            Some(n)
+        if obj.namespacep() {
+            let ptr = ObjectTag::Namespace.untag(obj.0);
+            Some(ptr as *mut Namespace)
         } else {
             None
         }
@@ -227,10 +398,27 @@ impl FromObject for *mut Namespace {
     }
 }
 
+impl MaybeFrom<Object> for *const Namespace {
+    fn maybe_from(obj: Object) -> Option<Self> {
+        if obj.namespacep() {
+            let ptr = ObjectTag::Namespace.untag(obj.0);
+            Some(ptr as *const Namespace)
+        } else {
+            None
+        }
+    }
+}
+
+impl FromObject for *const Namespace {
+    fn rlisp_type() -> RlispType {
+        RlispType::Namespace
+    }
+}
+
 impl MaybeFrom<Object> for &'static mut Namespace {
     fn maybe_from(obj: Object) -> Option<Self> {
-        if let Object::Namespace(n) = obj {
-            Some(unsafe { &mut *n })
+        if let Some(ptr) = <*mut Namespace>::maybe_from(obj) {
+            Some(unsafe { &mut *ptr })
         } else {
             None
         }
@@ -245,8 +433,8 @@ impl FromObject for &'static mut Namespace {
 
 impl MaybeFrom<Object> for &'static Namespace {
     fn maybe_from(obj: Object) -> Option<Self> {
-        if let Object::Namespace(n) = obj {
-            Some(unsafe { &*n })
+        if let Some(ptr) = <*mut Namespace>::maybe_from(obj) {
+            Some(unsafe { &*ptr })
         } else {
             None
         }
@@ -256,5 +444,33 @@ impl MaybeFrom<Object> for &'static Namespace {
 impl FromObject for &'static Namespace {
     fn rlisp_type() -> RlispType {
         RlispType::Namespace
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::ptr;
+    #[test]
+    fn floats() {
+        let one = Object::from(1.0);
+        assert_eq!(f64::maybe_from(one), Some(1.0));
+        assert_eq!(u32::maybe_from(one), Some(1));
+        assert_eq!(i32::maybe_from(one), Some(1));
+        assert!(<&ConsCell>::maybe_from(one).is_none());
+    }
+    #[test]
+    fn pointers() {
+        let a_pointer = 0xdead_beef as *const ConsCell;
+        let obj = Object::from(a_pointer);
+        assert!(f64::maybe_from(obj).is_none());
+        assert!(ptr::eq(
+            <*const ConsCell>::maybe_from(obj).unwrap(),
+            a_pointer
+        ));
+        assert!(ptr::eq(
+            unsafe { <*const ConsCell>::from_unchecked(obj) },
+            a_pointer
+        ));
     }
 }

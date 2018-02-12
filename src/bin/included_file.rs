@@ -1,4 +1,6 @@
 extern crate env_logger;
+#[macro_use]
+extern crate log;
 extern crate rlisp;
 use rlisp::lisp::Lisp;
 use rlisp::repl::string_repl::StringRepl;
@@ -12,6 +14,7 @@ const LISP_SOURCE: &str = include_str!(concat!(
 fn main() {
     env_logger::init();
     let mut lisp = Lisp::default();
+    info!("finished creating lisp");
     let mut input = String::from(LISP_SOURCE);
     let mut repl = StringRepl::from(&mut lisp);
     let mut output = String::new();
