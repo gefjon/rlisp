@@ -11,7 +11,7 @@ implement FnMut, and those types could in the future could be changed
 to *mut T, but for now they are *const for consistence.
 */
 use result::*;
-use std::{cmp, convert, fmt, mem};
+use std::{cmp, convert, fmt};
 use std::default::Default;
 use std::boxed::Box;
 use gc::GarbageCollected;
@@ -60,14 +60,23 @@ pub struct Object(u64);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum ObjectTag {
-    Integer,
-    Bool,
+    // it is important that the first tag (0b0000 << 48) is a pointer
+    // type because a tag of 0b0000 and a value of 0 or 1 denotes
+    // numeric Infinity or NaN. Because the pointers 0x0 and 0x1 are
+    // not valid, this is not an issue; if the tag 0b0000 denoted the
+    // type Integer, we would have to choose between not being able to
+    // represent Infinity and NaN or not being able to represent 0 and
+    // 1, which would be a problem. As is, if allocating a Cons fails
+    // and returns a nullptr, we get the float Infinity. Easy fix:
+    // `panic` on failure to alloc
     Cons,
     Sym,
     String,
     Function,
     Error,
     Namespace,
+    Integer,
+    Bool,
 }
 
 impl convert::From<ObjectTag> for u64 {
@@ -123,18 +132,13 @@ pub enum RlispType {
 
 impl Object {
     fn the_nan() -> u64 {
-        unsafe { mem::transmute(::std::f64::NAN) }
+        f64::to_bits(::std::f64::NAN)
     }
     fn is_nanbox(self) -> bool {
-        self.0 & NAN_MASK == NAN_MASK && !self.nanp() && !self.infinityp()
+        f64::from_bits(self.0).is_nan() && !self.nanp()
     }
     fn nanp(self) -> bool {
         self.0 == Self::the_nan()
-    }
-    fn infinityp(self) -> bool {
-        self.0 == unsafe { mem::transmute(::std::f64::INFINITY) } || self.0 == unsafe {
-            mem::transmute(::std::f64::NEG_INFINITY)
-        }
     }
     pub fn nil() -> Self {
         // returns the object which the symbol `nil` evauluates to
