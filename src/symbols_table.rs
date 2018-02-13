@@ -85,7 +85,6 @@ pub trait SymbolLookup: AllocObject {
             "boolean" => Some(RlispType::Bool),
             "error" => Some(RlispType::Error),
             "integer" => Some(RlispType::Integer),
-            "natnum" => Some(RlispType::NatNum),
             "namespace" => Some(RlispType::Namespace),
             _ => None,
         }
@@ -100,7 +99,6 @@ pub trait SymbolLookup: AllocObject {
             RlispType::Bool => "boolean",
             RlispType::Error => "error",
             RlispType::Integer => "integer",
-            RlispType::NatNum => "natnum",
             RlispType::Namespace => "namespace",
         }))
     }

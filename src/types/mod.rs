@@ -60,13 +60,14 @@ pub struct Object(u64);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum ObjectTag {
+    Integer,
+    Bool,
     Cons,
     Sym,
     String,
     Function,
     Error,
     Namespace,
-    Bool,
 }
 
 impl convert::From<ObjectTag> for u64 {
@@ -117,7 +118,6 @@ pub enum RlispType {
     Bool,
     Error,
     Integer,
-    NatNum,
     Namespace,
 }
 
@@ -147,6 +147,9 @@ impl Object {
         // but that this method treats only exactly `t` and `nil` as
         // bools, and returns false for any other Object.
         ObjectTag::Bool.is_of_type(self.0)
+    }
+    pub fn integerp(self) -> bool {
+        ObjectTag::Integer.is_of_type(self.0)
     }
     pub fn symbolp(self) -> bool {
         ObjectTag::Sym.is_of_type(self.0)
@@ -192,13 +195,9 @@ impl Object {
     }
     pub fn what_type(self) -> RlispType {
         if self.numberp() {
-            if unsafe { ::math::natnump(f64::from_unchecked(self)) } {
-                RlispType::NatNum
-            } else if unsafe { ::math::integerp(f64::from_unchecked(self)) } {
-                RlispType::Integer
-            } else {
-                RlispType::Num
-            }
+            RlispType::Num
+        } else if self.integerp() {
+            RlispType::Integer
         } else if self.consp() {
             RlispType::Cons
         } else if self.symbolp() {
@@ -225,7 +224,7 @@ impl Object {
         // by various types' gc_mark_children methods.
         unsafe {
             match self.what_type() {
-                RlispType::Num | RlispType::NatNum | RlispType::Integer | RlispType::Bool => (),
+                RlispType::Num | RlispType::Integer | RlispType::Bool => (),
                 RlispType::Cons => {
                     <&mut ConsCell>::from_unchecked(self).gc_mark(marking);
                 }
@@ -250,7 +249,7 @@ impl Object {
     pub fn should_dealloc(self, marking: ::gc::GcMark) -> bool {
         unsafe {
             match self.what_type() {
-                RlispType::Num | RlispType::NatNum | RlispType::Integer | RlispType::Bool => false,
+                RlispType::Num | RlispType::Integer | RlispType::Bool => false,
                 RlispType::Cons => <&mut ConsCell>::from_unchecked(self).should_dealloc(marking),
                 RlispType::Sym => <&mut Symbol>::from_unchecked(self).should_dealloc(marking),
                 RlispType::String => {
@@ -272,9 +271,8 @@ impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         unsafe {
             match self.what_type() {
-                RlispType::Num | RlispType::NatNum | RlispType::Integer => {
-                    write!(f, "{}", f64::from_unchecked(*self))
-                }
+                RlispType::Num => write!(f, "{}", f64::from_unchecked(*self)),
+                RlispType::Integer => write!(f, "{}", i32::from_unchecked(*self)),
                 RlispType::Bool => {
                     if self.nilp() {
                         write!(f, "nil")
@@ -297,9 +295,8 @@ impl fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         unsafe {
             match self.what_type() {
-                RlispType::Num | RlispType::NatNum | RlispType::Integer => {
-                    write!(f, "{}", f64::from_unchecked(*self))
-                }
+                RlispType::Num => write!(f, "{}", f64::from_unchecked(*self)),
+                RlispType::Integer => write!(f, "{}", i32::from_unchecked(*self)),
                 RlispType::Bool => {
                     if self.nilp() {
                         write!(f, "nil")
@@ -399,19 +396,9 @@ impl convert::From<f64> for Object {
     }
 }
 
-impl convert::From<u32> for Object {
-    // used for funcalls and such
-    fn from(num: u32) -> Self {
-        Object::from(f64::from(num))
-    }
-}
-
 impl convert::From<i32> for Object {
-    // this trait is kind of meaningless since all numbers in Rlisp
-    // are currently f64s, but if the language ever gets an int type
-    // for optimization, this may be useful.
     fn from(num: i32) -> Self {
-        Object::from(f64::from(num))
+        Object(ObjectTag::Integer.tag_ptr(num as u64))
     }
 }
 

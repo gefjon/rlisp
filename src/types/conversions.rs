@@ -229,31 +229,14 @@ impl FromObject for &'static mut RlispString {
     }
 }
 
-impl MaybeFrom<Object> for u32 {
-    fn maybe_from(obj: Object) -> Option<Self> {
-        if let Some(n) = f64::maybe_from(obj) {
-            if ::math::natnump(n) {
-                return Some(n as u32);
-            }
-        }
-        None
-    }
-}
-
-impl FromObject for u32 {
-    fn rlisp_type() -> RlispType {
-        RlispType::NatNum
-    }
-}
-
 impl MaybeFrom<Object> for i32 {
     fn maybe_from(obj: Object) -> Option<Self> {
-        if let Some(n) = f64::maybe_from(obj) {
-            if ::math::integerp(n) {
-                return Some(n as i32);
-            }
+        if obj.integerp() {
+            let val = ObjectTag::Integer.untag(obj.0);
+            return Some(val as i32);
+        } else {
+            None
         }
-        None
     }
 }
 
@@ -453,11 +436,19 @@ mod test {
     use std::ptr;
     #[test]
     fn floats() {
-        let one = Object::from(1.0);
-        assert_eq!(f64::maybe_from(one), Some(1.0));
-        assert_eq!(u32::maybe_from(one), Some(1));
+        let one_and_a_half = Object::from(1.5);
+        assert_eq!(f64::maybe_from(one_and_a_half), Some(1.5));
+        assert!(<&ConsCell>::maybe_from(one_and_a_half).is_none());
+    }
+    #[test]
+    fn integers() {
+        let one = Object::from(1);
         assert_eq!(i32::maybe_from(one), Some(1));
         assert!(<&ConsCell>::maybe_from(one).is_none());
+
+        let many = Object::from(::std::i32::MAX);
+        assert_eq!(i32::maybe_from(many), Some(::std::i32::MAX));
+        assert!(<&Namespace>::maybe_from(many).is_none());
     }
     #[test]
     fn pointers() {

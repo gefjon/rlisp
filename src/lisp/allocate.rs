@@ -29,7 +29,7 @@ pub trait AllocObject {
         use types::conversions::FromUnchecked;
         // deallocate an object
         match to_dealloc.what_type() {
-            RlispType::Num | RlispType::NatNum | RlispType::Integer | RlispType::Bool => {
+            RlispType::Num | RlispType::Integer | RlispType::Bool => {
                 warn!("attempt to dealloc a by-value object")
             }
             RlispType::Cons => {

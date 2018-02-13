@@ -15,7 +15,7 @@ use types::conversions::*;
 // returns an Object. The block can use the `?` operator, but should
 // do so sparingly
 
-pub type RlispBuiltinFunc = FnMut(&mut lisp::Lisp, u32) -> Object;
+pub type RlispBuiltinFunc = FnMut(&mut lisp::Lisp, i32) -> Object;
 pub type RlispSpecialForm = FnMut(&mut lisp::Lisp) -> Object;
 pub type Arglist = Vec<String>;
 pub type Name = String;
@@ -29,7 +29,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
     special_forms!{
         l = lisp;
         "cond" (&rest clauses) -> {
-            let n_args: u32 = unsafe { pop_bubble!(l).into_unchecked() };
+            let n_args: i32 = unsafe { pop_bubble!(l).into_unchecked() };
             debug!("called cond with {} args", n_args);
             let mut clauses = Vec::with_capacity(n_args as _);
             for _i in 0..n_args {
@@ -48,7 +48,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
             false.into()
         },
         "let" (bindings &rest body) -> {
-            let n_args: u32 = unsafe { pop_bubble!(l).into_unchecked() };
+            let n_args: i32 = unsafe { pop_bubble!(l).into_unchecked() };
             let bindings = pop_bubble!(l);
             let mut body = Vec::with_capacity(n_args as usize - 1);
             for _i in 0..(n_args - 1) {
@@ -87,7 +87,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
                 let e: RlispError = e.into();
                 l.alloc(e)
             } else {
-                let mut n_args: u32 = n_args as _;
+                let mut n_args: i32 = n_args as _;
                 let mut res = Object::nil();
                 while n_args > 1 {
                     n_args -= 2;
@@ -116,7 +116,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
             }
         },
         "if" (predicate ifclause &rest elseclauses) -> {
-            let n_args: u32 = unsafe { pop_bubble!(l).into_unchecked() };
+            let n_args: i32 = unsafe { pop_bubble!(l).into_unchecked() };
             if n_args < 2 {
                 let e: Error = ErrorKind::WrongArgsCount(n_args, 2, None).into();
                 let e: RlispError = e.into();
@@ -144,7 +144,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
             }
         },
         "defun" (name arglist &rest body) -> {
-            let n_args: u32 = unsafe { pop_bubble!(l).into_unchecked() };
+            let n_args: i32 = unsafe { pop_bubble!(l).into_unchecked() };
             if n_args < 3 {
                 let e: Error = ErrorKind::WrongArgsCount(n_args, 3, None).into();
                 let e: RlispError = e.into();
@@ -169,7 +169,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
             }
         },
         "defvar" (name value) -> {
-            let n_args: u32 = unsafe { pop_bubble!(l).into_unchecked() };
+            let n_args: i32 = unsafe { pop_bubble!(l).into_unchecked() };
             if n_args != 2 {
                 let e: Error = ErrorKind::WrongArgsCount(n_args, 2, Some(2)).into();
                 let e: RlispError = e.into();
@@ -185,7 +185,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
             }
         },
         "catch-error" (statement &rest handlers) -> {
-            let n_args: u32 = unsafe { pop_bubble!(l).into_unchecked() };
+            let n_args: i32 = unsafe { pop_bubble!(l).into_unchecked() };
             info!("catch-error: called catch-error");
             let statement = pop_bubble!(l);
 
@@ -223,7 +223,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
             res
         },
         "lambda" (args &rest body) -> {
-            let n_args: u32 = unsafe { pop_bubble!(l).into_unchecked() };
+            let n_args: i32 = unsafe { pop_bubble!(l).into_unchecked() };
             if n_args < 2 {
                 let e: Error = ErrorKind::WrongArgsCount(n_args, 2, None).into();
                 let e: RlispError = e.into();
@@ -258,7 +258,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
                 let e: RlispError = e.into();
                 l.alloc(e)
             } else {
-                let mut n_args: u32 = n_args as _;
+                let mut n_args: i32 = n_args as _;
                 let mut res = Object::nil();
                 while n_args > 1 {
                     n_args -= 2;
@@ -268,31 +268,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
                     res = l.evaluate(obj);
                     bubble!(res);
                     if let Some(typ) = unsafe { l.type_from_symbol(type_name) } {
-                        if typ == RlispType::Integer {
-                            if let Some(n) = f64::maybe_from(res) {
-                                if ::math::integerp(n) {
-                                    continue;
-                                }
-                            }
-                            let e = RlispError::wrong_type(l.type_name(typ),
-                                                           l.type_name(res.what_type()));
-                            for _ in 0..n_args {
-                                l.pop();
-                            }
-                            return l.alloc(e);
-                        } else if typ == RlispType::NatNum {
-                            if let Some(n) = f64::maybe_from(res) {
-                                if ::math::natnump(n) {
-                                    continue;
-                                }
-                            }
-                            let e = RlispError::wrong_type(l.type_name(typ),
-                                                           l.type_name(res.what_type()));
-                            for _ in 0..n_args {
-                                l.pop();
-                            }
-                            return l.alloc(e);
-                        } else if typ != res.what_type() {
+                        if typ != res.what_type() {
                             let e = RlispError::wrong_type(l.type_name(typ),
                                                            l.type_name(res.what_type()));
                             for _ in 0..n_args {
@@ -378,7 +354,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
         },
         "make-namespace" (&optional name) -> {
             let n_args = pop_bubble!(l);
-            let arg_ct: u32 = unsafe { n_args.into_unchecked() };
+            let arg_ct: i32 = unsafe { n_args.into_unchecked() };
             if arg_ct > 1 {
                 l.alloc(RlispError::bad_args_count(
                     n_args,
@@ -443,10 +419,10 @@ pub fn make_builtins() -> RlispBuiltins {
             l.alloc(RlispError::wrong_type(wanted, found))
         },
         "wrong-arg-count-error" (found min &optional max) -> {
-            let _ = into_type_or_error!(l : found => u32);
-            let _ = into_type_or_error!(l : found => u32);
+            let _ = into_type_or_error!(l : found => i32);
+            let _ = into_type_or_error!(l : found => i32);
             if bool::from(max) {
-                let _ = into_type_or_error!(l : found => u32);
+                let _ = into_type_or_error!(l : found => i32);
             }
             l.alloc(RlispError::bad_args_count(found, min, max))
         },
@@ -497,7 +473,5 @@ pub fn builtin_vars() -> RlispBuiltinVars {
         "+nan+" = ::std::f64::NAN,
         "+min-integer+" = ::std::i32::MIN,
         "+max-integer+" = ::std::i32::MAX,
-        "+min-natnum+" = ::std::u32::MIN,
-        "+max-natnum+" = ::std::u32::MAX,
     }
 }
