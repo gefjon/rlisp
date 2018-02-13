@@ -125,6 +125,9 @@ impl Object {
     fn the_nan() -> u64 {
         unsafe { mem::transmute(::std::f64::NAN) }
     }
+    fn is_nanbox(self) -> bool {
+        self.0 & NAN_MASK == NAN_MASK && !self.nanp() && !self.infinityp()
+    }
     fn nanp(self) -> bool {
         self.0 == Self::the_nan()
     }
@@ -155,15 +158,7 @@ impl Object {
         ObjectTag::Sym.is_of_type(self.0)
     }
     pub fn numberp(self) -> bool {
-        if self.0 & NAN_MASK != NAN_MASK {
-            true
-        } else if self.nanp() {
-            true
-        } else if self.infinityp() {
-            true
-        } else {
-            false
-        }
+        !self.is_nanbox()
     }
     pub fn consp(self) -> bool {
         // note that being a cons does not mean being a proper
@@ -392,7 +387,7 @@ impl convert::From<bool> for Object {
 
 impl convert::From<f64> for Object {
     fn from(num: f64) -> Self {
-        Object(unsafe { mem::transmute(num) })
+        Object(f64::to_bits(num))
     }
 }
 

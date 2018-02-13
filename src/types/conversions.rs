@@ -1,5 +1,4 @@
 use types::*;
-use std::mem;
 
 pub trait MaybeFrom<T>: Sized {
     fn maybe_from(t: T) -> Option<Self>;
@@ -114,7 +113,7 @@ impl FromObject for &'static mut ConsCell {
 impl MaybeFrom<Object> for f64 {
     fn maybe_from(obj: Object) -> Option<f64> {
         if obj.numberp() {
-            Some(unsafe { mem::transmute(obj.0) })
+            Some(f64::from_bits(obj.0))
         } else {
             None
         }
@@ -233,7 +232,7 @@ impl MaybeFrom<Object> for i32 {
     fn maybe_from(obj: Object) -> Option<Self> {
         if obj.integerp() {
             let val = ObjectTag::Integer.untag(obj.0);
-            return Some(val as i32);
+            Some(val as i32)
         } else {
             None
         }

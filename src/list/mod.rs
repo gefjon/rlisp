@@ -136,16 +136,14 @@ impl ConsIterator {
         if self.first {
             self.first = false;
             ConsIteratorResult::More(self.car)
+        } else if let Some(next) = <&ConsCell>::maybe_from(self.cdr) {
+            self.car = next.car;
+            self.cdr = next.cdr;
+            ConsIteratorResult::More(self.car)
+        } else if self.cdr.nilp() {
+            ConsIteratorResult::Final(None)
         } else {
-            if let Some(next) = <&ConsCell>::maybe_from(self.cdr) {
-                self.car = next.car;
-                self.cdr = next.cdr;
-                ConsIteratorResult::More(self.car)
-            } else if self.cdr.nilp() {
-                ConsIteratorResult::Final(None)
-            } else {
-                ConsIteratorResult::Final(Some(self.cdr))
-            }
+            ConsIteratorResult::Final(Some(self.cdr))
         }
     }
 }
