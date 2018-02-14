@@ -1,14 +1,19 @@
 /*
-Rlisp's Object types are Copy and are passed by value. bools and
-Numbers (f64s) are passed by value, but everything else is included as
-a *const T in Object. Many functions mutate the things pointed to
-after casting to *mut T, but the pointers are stored as *const T to
-encourage cloning over mutation.
+The Object type is a NaNbox. f64s are stored by value, and everything
+else is stored in the unused 52 bits of NaN values. The high 4 bits of
+that 52 are used as a tag (the enum ObjectTag defines the tag values),
+and the low 48 store either a pointer or bool or integer immediate
+value. Future improvements:
 
-It doesn't make a lot of sense to store Symbols as *const Symbol,
-since they are frequently mutated (rebound), or functions, since they
-implement FnMut, and those types could in the future could be changed
-to *mut T, but for now they are *const for consistence.
+- use the low 3 bits of pointers as an additional tag (all x86
+  pointers are 8-byte aligned)
+
+- do something with the wasted bits in int and bool immediates (Rlisp
+  ints are 32 bits, so there's an extra 16 in there)
+
+These two changes could drastically increase the number of first-class
+types Object can store, which would be nice.
+
 */
 use result::*;
 use std::{cmp, convert, fmt};
@@ -39,24 +44,12 @@ use self::conversions::*;
 
 pub mod into_object;
 
-const NAN_MASK: u64 = 0b111_1111_1111 << 52;
-const MAX_PTR: u64 = 1 << 48;
-const OBJECT_TAG_MASK: u64 = 0b1111 << 48;
+const NAN_MASK: u64 = 0b111_1111_1111 << 52; // Any NaN has these bits set
+const _MAX_PTR: u64 = 1 << 48; // x86_64 pointers always fit in 48 bits; this is used in a debug_assert
+const OBJECT_TAG_MASK: u64 = 0b1111 << 48; // for type-checking Objects
 
 #[derive(Copy, Clone)]
 pub struct Object(u64);
-
-// #[derive(Copy, Clone)]
-// pub enum Object {
-//     Cons(*const ConsCell),
-//     Num(f64),
-//     Sym(*const Symbol),
-//     String(*const RlispString),
-//     Function(*const RlispFunc),
-//     Error(*const RlispError),
-//     Namespace(*mut Namespace),
-//     Bool(bool),
-// }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum ObjectTag {
@@ -86,8 +79,8 @@ impl convert::From<ObjectTag> for u64 {
 }
 
 impl ObjectTag {
-    fn tag_ptr(self, ptr: u64) -> u64 {
-        debug_assert!(ptr < MAX_PTR);
+    fn tag(self, ptr: u64) -> u64 {
+        debug_assert!(ptr < _MAX_PTR);
         let tagged = u64::from(self) ^ NAN_MASK ^ ptr;
         debug!("tagged the {:?}*\n{:#066b} as\n{:#066b}", self, ptr, tagged);
         tagged
@@ -142,11 +135,11 @@ impl Object {
     }
     pub fn nil() -> Self {
         // returns the object which the symbol `nil` evauluates to
-        Object(ObjectTag::Bool.tag_ptr(0))
+        Object(ObjectTag::Bool.tag(0))
     }
     pub fn t() -> Self {
         // returns the object which the symbol `t` evaluates to
-        Object(ObjectTag::Bool.tag_ptr(1))
+        Object(ObjectTag::Bool.tag(1))
     }
     pub fn boolp(self) -> bool {
         // true if self is a bool. note that any object can be cast to
@@ -331,42 +324,42 @@ impl convert::From<Object> for bool {
 impl convert::From<*const RlispString> for Object {
     fn from(ptr: *const RlispString) -> Self {
         let ptr = ptr as u64;
-        Object(ObjectTag::String.tag_ptr(ptr))
+        Object(ObjectTag::String.tag(ptr))
     }
 }
 
 impl convert::From<*const ConsCell> for Object {
     fn from(ptr: *const ConsCell) -> Self {
         let ptr = ptr as u64;
-        Object(ObjectTag::Cons.tag_ptr(ptr))
+        Object(ObjectTag::Cons.tag(ptr))
     }
 }
 
 impl convert::From<*const Symbol> for Object {
     fn from(ptr: *const Symbol) -> Self {
         let ptr = ptr as u64;
-        Object(ObjectTag::Sym.tag_ptr(ptr))
+        Object(ObjectTag::Sym.tag(ptr))
     }
 }
 
 impl convert::From<*const RlispFunc> for Object {
     fn from(ptr: *const RlispFunc) -> Self {
         let ptr = ptr as u64;
-        Object(ObjectTag::Function.tag_ptr(ptr))
+        Object(ObjectTag::Function.tag(ptr))
     }
 }
 
 impl convert::From<*const RlispError> for Object {
     fn from(ptr: *const RlispError) -> Self {
         let ptr = ptr as u64;
-        Object(ObjectTag::Error.tag_ptr(ptr))
+        Object(ObjectTag::Error.tag(ptr))
     }
 }
 
 impl convert::From<*const Namespace> for Object {
     fn from(ptr: *const Namespace) -> Self {
         let ptr = ptr as u64;
-        Object(ObjectTag::Namespace.tag_ptr(ptr))
+        Object(ObjectTag::Namespace.tag(ptr))
     }
 }
 
@@ -397,7 +390,7 @@ impl convert::From<f64> for Object {
 
 impl convert::From<i32> for Object {
     fn from(num: i32) -> Self {
-        Object(ObjectTag::Integer.tag_ptr(num as u64))
+        Object(ObjectTag::Integer.tag(num as u64))
     }
 }
 
