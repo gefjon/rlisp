@@ -1,9 +1,14 @@
 use types::*;
 
+/// I'm not sure why this trait isn't in libstd ; it's very convenient
+/// and seems like a logical counterpart to TryFrom.
+///
+/// Has a companion method MaybeInto
 pub trait MaybeFrom<T>: Sized {
     fn maybe_from(t: T) -> Option<Self>;
 }
 
+/// Extension to MaybeFrom specific for converting Object into types
 pub trait FromObject: MaybeFrom<Object> {
     fn rlisp_type() -> RlispType;
     fn is_type(obj: Object) -> bool {
@@ -11,6 +16,10 @@ pub trait FromObject: MaybeFrom<Object> {
     }
 }
 
+/// Like From, but marked unsafe. In Rlisp, this is used for places
+/// where we *know* the type of obj.
+///
+/// Has a companion method IntoUnchecked
 pub trait FromUnchecked<T> {
     unsafe fn from_unchecked(obj: T) -> Self;
 }
@@ -50,6 +59,8 @@ where
     O: ::std::fmt::Debug,
     O: ::std::marker::Copy,
 {
+    /// A silly and lazy implementation useful for debugging which
+    /// calls and unwraps MaybeInto
     unsafe fn into_unchecked(self) -> T {
         if let Some(t) = self.maybe_into() {
             t

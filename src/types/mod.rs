@@ -44,10 +44,17 @@ use self::conversions::*;
 
 pub mod into_object;
 
-const NAN_MASK: u64 = 0b111_1111_1111 << 52; // Any NaN has these bits set
-const _MAX_PTR: u64 = 1 << 48; // x86_64 pointers always fit in 48 bits; this is used in a debug_assert
-const OBJECT_TAG_MASK: u64 = 0b1111 << 48; // for type-checking Objects
+///  Any NaN has these bits set
+const NAN_MASK: u64 = 0b111_1111_1111 << 52;
 
+/// x86_64 pointers always fit in 48 bits; this is used in a debug_assert
+const _MAX_PTR: u64 = 1 << 48;
+
+/// for type-checking Objects
+const OBJECT_TAG_MASK: u64 = 0b1111 << 48;
+
+/// A NaNboxed Rlisp object, containing either an f64 or a variant of
+/// ObjectTag
 #[derive(Copy, Clone)]
 pub struct Object(u64);
 
@@ -62,13 +69,28 @@ enum ObjectTag {
     // 1, which would be a problem. As is, if allocating a Cons fails
     // and returns a nullptr, we get the float Infinity. Easy fix:
     // `panic` on failure to alloc
+    /// *const ConsCell / *mut ConsCell
     Cons,
+
+    /// *const Symbol / *mut Symbol
     Sym,
+
+    /// *const RlispString / *mut RlispString
     String,
+
+    /// *const RlispFunc / *mut RlispFunc
     Function,
+
+    /// *const RlispError / *mut RlispError
     Error,
+
+    /// *const Namespace / *mut Namespace
     Namespace,
+
+    /// i32
     Integer,
+
+    /// bool
     Bool,
 }
 
@@ -79,12 +101,16 @@ impl convert::From<ObjectTag> for u64 {
 }
 
 impl ObjectTag {
+    /// given a u64 which is strictly less than 1 << 48 (the max x86 pointer),
+    /// return its NaNboxed representation
     fn tag(self, ptr: u64) -> u64 {
         debug_assert!(ptr < _MAX_PTR);
         let tagged = u64::from(self) ^ NAN_MASK ^ ptr;
         debug!("tagged the {:?}*\n{:#066b} as\n{:#066b}", self, ptr, tagged);
         tagged
     }
+
+    /// true iff ptr is a NaNboxed self
     fn is_of_type(self, ptr: u64) -> bool {
         let res = !Object::numberp(Object(ptr)) && (ptr & OBJECT_TAG_MASK) == u64::from(self);
         if res {
@@ -99,6 +125,8 @@ impl ObjectTag {
         );
         res
     }
+
+    /// given a NaNboxed Self, return its raw bits
     fn untag(self, ptr: u64) -> u64 {
         debug_assert!(self.is_of_type(ptr));
         let untagged = ptr & !(u64::from(self) ^ NAN_MASK);
@@ -110,6 +138,8 @@ impl ObjectTag {
     }
 }
 
+/// These are simple internally-used typenames and are not ever cast
+/// to a numeric type or used in tagging or any of that crap
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum RlispType {
     Cons,
@@ -124,30 +154,39 @@ pub enum RlispType {
 }
 
 impl Object {
+    /// The canonical numeric NaN returned by arithmetic ops
     fn the_nan() -> u64 {
         f64::to_bits(::std::f64::NAN)
     }
+
+    /// The logical inverse of numberp ; true iff self is not an f64
     fn is_nanbox(self) -> bool {
         f64::from_bits(self.0).is_nan() && !self.nanp()
     }
+
+    /// true iff self is the numeric NaN which arithmetic ops return
     fn nanp(self) -> bool {
         self.0 == Self::the_nan()
     }
+
+    /// returns the object which the symbol `nil` evauluates to
     pub fn nil() -> Self {
-        // returns the object which the symbol `nil` evauluates to
         Object(ObjectTag::Bool.tag(0))
     }
+
+    /// returns the object which the symbol `t` evaluates to
     pub fn t() -> Self {
-        // returns the object which the symbol `t` evaluates to
         Object(ObjectTag::Bool.tag(1))
     }
+
+    /// true if self is a bool. note that any object can be cast to
+    /// bool, and every object other than `nil` evaluates to true,
+    /// but that this method treats only exactly `t` and `nil` as
+    /// bools, and returns false for any other Object.
     pub fn boolp(self) -> bool {
-        // true if self is a bool. note that any object can be cast to
-        // bool, and every object other than `nil` evaluates to true,
-        // but that this method treats only exactly `t` and `nil` as
-        // bools, and returns false for any other Object.
         ObjectTag::Bool.is_of_type(self.0)
     }
+
     pub fn integerp(self) -> bool {
         ObjectTag::Integer.is_of_type(self.0)
     }
@@ -157,34 +196,45 @@ impl Object {
     pub fn numberp(self) -> bool {
         !self.is_nanbox()
     }
+
+    /// note that being a cons does not mean being a proper
+    /// list. listp is a more expensive (and as yet unimplemented)
+    /// operation which involves traversing the list to check that
+    /// it is nil-terminated.
     pub fn consp(self) -> bool {
-        // note that being a cons does not mean being a proper
-        // list. listp is a more expensive (and as yet unimplemented)
-        // operation which involves traversing the list to check that
-        // it is nil-terminated.
         ObjectTag::Cons.is_of_type(self.0)
     }
+
     pub fn stringp(self) -> bool {
         ObjectTag::String.is_of_type(self.0)
     }
+
     pub fn functionp(self) -> bool {
         ObjectTag::Function.is_of_type(self.0)
     }
+
     pub fn errorp(self) -> bool {
         ObjectTag::Error.is_of_type(self.0)
     }
+
     pub fn namespacep(self) -> bool {
         ObjectTag::Namespace.is_of_type(self.0)
     }
+
+    /// the logical inverse of casting an Object to bool; true iff
+    /// self == Object::nil().
     pub fn nilp(self) -> bool {
-        // the logical inverse of casting an Object to bool; true iff
-        // self == Object::nil().
         if let Some(b) = bool::maybe_from(self) {
             !b
         } else {
             false
         }
     }
+
+    /// returns the RlispType denoting self's type. Currently pretty
+    /// inefficent; O(n) where n is the number of Object
+    /// variants. Also not optimized to search more used types
+    /// earlier.
     pub fn what_type(self) -> RlispType {
         if self.numberp() {
             RlispType::Num
@@ -208,12 +258,13 @@ impl Object {
             unreachable!()
         }
     }
+
+    /// Object could probably implement gc::GarbageCollected, but as
+    /// of now it doesn't. Because of that, it instead has this method
+    /// and should_dealloc which mimic GarbageCollected::{gc_mark,
+    /// should_dealloc} and are called by various types'
+    /// gc_mark_children methods.
     pub fn gc_mark(self, marking: ::gc::GcMark) {
-        // Object could probably implement gc::GarbageCollected, but
-        // as of now it doesn't. Because of that, it instead has this
-        // method and should_dealloc which mimic
-        // GarbageCollected::{gc_mark, should_dealloc} and are called
-        // by various types' gc_mark_children methods.
         unsafe {
             match self.what_type() {
                 RlispType::Num | RlispType::Integer | RlispType::Bool => (),
@@ -238,6 +289,12 @@ impl Object {
             }
         }
     }
+
+    /// Object could probably implement gc::GarbageCollected, but as
+    /// of now it doesn't. Because of that, it instead has this method
+    /// and gc_mark which mimic GarbageCollected::{gc_mark,
+    /// should_dealloc} and are called by various types'
+    /// gc_mark_children methods.
     pub fn should_dealloc(self, marking: ::gc::GcMark) -> bool {
         unsafe {
             match self.what_type() {
@@ -308,14 +365,14 @@ impl fmt::Debug for Object {
 }
 
 impl Default for Object {
-    // the default Object is `t`
+    /// the default Object is `t`
     fn default() -> Self {
         Object::t()
     }
 }
 
 impl convert::From<Object> for bool {
-    // all values except `nil` and errors evaluate to true
+    /// all values except `nil` and errors evaluate to true
     fn from(obj: Object) -> bool {
         !(obj.nilp() && ObjectTag::Error.is_of_type(obj.0))
     }
@@ -390,11 +447,18 @@ impl convert::From<f64> for Object {
 
 impl convert::From<i32> for Object {
     fn from(num: i32) -> Self {
+        // I'm reasonably sure that casting i32 to u64 is a bitwise
+        // cast, which is what we want, but it's possible (and
+        // wouldn't surprise me) that it moves the sign bit to the
+        // high bit (as if casting to an i64), which would be bad.
         Object(ObjectTag::Integer.tag(num as u64))
     }
 }
 
 impl cmp::PartialEq for Object {
+    /// eq-comparing Objects is straight-up bitwise equality, which
+    /// for numbers is type-specific numeric equality (1.0 != 1), and
+    /// for pointers is pointer equality
     fn eq(&self, other: &Object) -> bool {
         self.0 == other.0
     }
