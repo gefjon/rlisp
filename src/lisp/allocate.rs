@@ -7,7 +7,7 @@ use std::heap::Heap;
 use alloc::allocator::{Alloc, Layout};
 use types::*;
 use lisp;
-use std::ptr::Unique;
+use std::ptr::NonNull;
 use std::{mem, ptr};
 pub trait AllocObject {
     fn alloc<T>(&mut self, to_alloc: T) -> Object
@@ -54,10 +54,10 @@ pub trait AllocObject {
         // This is called for types created by `alloc`, but the
         // dynamically sized `Symbol` and `RlispString` have their own
         // dealloc methods, `dealloc_sym` and `dealloc_string`.
-        let ptr = Unique::new(to_dealloc as *mut T).unwrap();
+        let ptr = NonNull::new(to_dealloc as *mut T).unwrap();
         Heap.dealloc_one(ptr);
     }
-    fn alloc_sym(&mut self, to_alloc: &str) -> Object {
+    fn alloc_sym(&mut self, to_alloc: &[u8]) -> Object {
         // allocate a block of memory large enough to store the
         // headers of a symbol plus all of the bytes of `to_alloc` and
         // then initialize a symbol there
@@ -76,7 +76,7 @@ pub trait AllocObject {
                 to_alloc.len(),
             );
             let string_head = pointer as usize + mem::size_of::<GcMark>() + mem::size_of::<usize>();
-            for (offset, byte) in to_alloc.bytes().enumerate() {
+            for (offset, byte) in to_alloc.iter().cloned().enumerate() {
                 ptr::write(
                     (string_head + (offset * mem::size_of::<u8>())) as *mut u8,
                     byte,
