@@ -44,17 +44,20 @@ use self::conversions::*;
 
 pub mod into_object;
 
+pub mod num;
+pub use self::num::RlispNum;
+
 ///  Any NaN has these bits set
 const NAN_MASK: u64 = 0b111_1111_1111 << 52;
 
-/// x86_64 pointers always fit in 48 bits; this is used in a debug_assert
+/// `x86_64` pointers always fit in 48 bits; this is used in a `debug_assert`
 const _MAX_PTR: u64 = 1 << 48;
 
 /// for type-checking Objects
 const OBJECT_TAG_MASK: u64 = 0b1111 << 48;
 
-/// A NaNboxed Rlisp object, containing either an f64 or a variant of
-/// ObjectTag
+/// A NaN-boxed Rlisp object, containing either an `f64` or a variant of
+/// `ObjectTag`
 #[derive(Copy, Clone)]
 pub struct Object(u64);
 
@@ -112,7 +115,7 @@ impl ObjectTag {
 
     /// true iff ptr is a NaNboxed self
     fn is_of_type(self, ptr: u64) -> bool {
-        let res = !Object::numberp(Object(ptr)) && (ptr & OBJECT_TAG_MASK) == u64::from(self);
+        let res = !Object::floatp(Object(ptr)) && (ptr & OBJECT_TAG_MASK) == u64::from(self);
         if res {
             debug!("{:#066b} is of type {:?}*", ptr, self);
         } else {
@@ -143,7 +146,8 @@ impl ObjectTag {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum RlispType {
     Cons,
-    Num,
+    Number,
+    Float,
     Sym,
     String,
     Function,
@@ -159,7 +163,7 @@ impl Object {
         f64::to_bits(::std::f64::NAN)
     }
 
-    /// The logical inverse of numberp ; true iff self is not an f64
+    /// The logical inverse of floatp ; true iff self is not an f64
     fn is_nanbox(self) -> bool {
         f64::from_bits(self.0).is_nan() && !self.nanp()
     }
@@ -186,14 +190,16 @@ impl Object {
     pub fn boolp(self) -> bool {
         ObjectTag::Bool.is_of_type(self.0)
     }
-
+    pub fn numberp(self) -> bool {
+        self.floatp() || self.integerp()
+    }
     pub fn integerp(self) -> bool {
         ObjectTag::Integer.is_of_type(self.0)
     }
     pub fn symbolp(self) -> bool {
         ObjectTag::Sym.is_of_type(self.0)
     }
-    pub fn numberp(self) -> bool {
+    pub fn floatp(self) -> bool {
         !self.is_nanbox()
     }
 
@@ -236,8 +242,8 @@ impl Object {
     /// variants. Also not optimized to search more used types
     /// earlier.
     pub fn what_type(self) -> RlispType {
-        if self.numberp() {
-            RlispType::Num
+        if self.floatp() {
+            RlispType::Float
         } else if self.integerp() {
             RlispType::Integer
         } else if self.consp() {
@@ -267,7 +273,7 @@ impl Object {
     pub fn gc_mark(self, marking: ::gc::GcMark) {
         unsafe {
             match self.what_type() {
-                RlispType::Num | RlispType::Integer | RlispType::Bool => (),
+                RlispType::Number | RlispType::Float | RlispType::Integer | RlispType::Bool => (),
                 RlispType::Cons => {
                     <&mut ConsCell>::from_unchecked(self).gc_mark(marking);
                 }
@@ -298,7 +304,9 @@ impl Object {
     pub fn should_dealloc(self, marking: ::gc::GcMark) -> bool {
         unsafe {
             match self.what_type() {
-                RlispType::Num | RlispType::Integer | RlispType::Bool => false,
+                RlispType::Number | RlispType::Float | RlispType::Integer | RlispType::Bool => {
+                    false
+                }
                 RlispType::Cons => <&mut ConsCell>::from_unchecked(self).should_dealloc(marking),
                 RlispType::Sym => <&mut Symbol>::from_unchecked(self).should_dealloc(marking),
                 RlispType::String => {
@@ -320,7 +328,8 @@ impl fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         unsafe {
             match self.what_type() {
-                RlispType::Num => write!(f, "{}", f64::from_unchecked(*self)),
+                RlispType::Number => unreachable!(),
+                RlispType::Float => write!(f, "{}", f64::from_unchecked(*self)),
                 RlispType::Integer => write!(f, "{}", i32::from_unchecked(*self)),
                 RlispType::Bool => {
                     if self.nilp() {
@@ -344,7 +353,8 @@ impl fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         unsafe {
             match self.what_type() {
-                RlispType::Num => write!(f, "{}", f64::from_unchecked(*self)),
+                RlispType::Number => unreachable!(),
+                RlispType::Float => write!(f, "{}", f64::from_unchecked(*self)),
                 RlispType::Integer => write!(f, "{}", i32::from_unchecked(*self)),
                 RlispType::Bool => {
                     if self.nilp() {
@@ -375,6 +385,16 @@ impl convert::From<Object> for bool {
     /// all values except `nil` and errors evaluate to true
     fn from(obj: Object) -> bool {
         !(obj.nilp() && ObjectTag::Error.is_of_type(obj.0))
+    }
+}
+
+impl convert::From<RlispNum> for Object {
+    fn from(n: RlispNum) -> Self {
+        if let Some(i) = i32::maybe_from(n) {
+            Object::from(i)
+        } else {
+            Object::from(f64::from(n))
+        }
     }
 }
 

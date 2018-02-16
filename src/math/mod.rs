@@ -8,7 +8,7 @@ pub mod math_builtins {
         builtin_functions!{
             l = lisp;
             "=" (first &rest nums) -> {
-                let first = into_type_or_error!(l : first => f64);
+                let first = into_type_or_error!(l : first => RlispNum);
 
                 if nums == Object::nil() {
                     true.into()
@@ -17,7 +17,7 @@ pub mod math_builtins {
 
                     #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop, float_cmp))]
                     for el in nums.into_iter() {
-                        let el = into_type_or_error!(l : el => f64);
+                        let el = into_type_or_error!(l : el => RlispNum);
 
                         if first != el {
                             return false.into();
@@ -30,15 +30,15 @@ pub mod math_builtins {
 
             "*" (&rest nums) -> {
                 if nums == Object::nil() {
-                    1.0.into()
+                    1.into()
                 } else {
-                    let mut result = 1.0;
+                    let mut result = RlispNum::from(1);
 
                     let nums = into_type_or_error!(l : nums => &ConsCell);
 
                     #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
                     for el in nums.into_iter() {
-                        let el = into_type_or_error!(l : el => f64);
+                        let el = into_type_or_error!(l : el => RlispNum);
                         result *= el;
                     }
 
@@ -48,14 +48,14 @@ pub mod math_builtins {
 
             "+" (&rest nums) -> {
                 if nums == Object::nil() {
-                    0.0.into()
+                    0.into()
                 } else {
-                    let mut result = 0.0;
+                    let mut result = RlispNum::from(0);
 
                     let nums = into_type_or_error!(l : nums => &ConsCell);
                     #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
                     for el in nums.into_iter() {
-                        let el = into_type_or_error!(l : el => f64);
+                        let el = into_type_or_error!(l : el => RlispNum);
                         result += el;
                     }
                     result.into()
@@ -63,7 +63,7 @@ pub mod math_builtins {
             },
 
             "-" (first &rest nums) -> {
-                let mut result = into_type_or_error!(l : first => f64);
+                let mut result = into_type_or_error!(l : first => RlispNum);
 
                 if nums.nilp() {
                     first
@@ -71,7 +71,7 @@ pub mod math_builtins {
                     let nums = into_type_or_error!(l : nums => &ConsCell);
                     #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
                     for el in nums.into_iter() {
-                        let el = into_type_or_error!(l : el => f64);
+                        let el = into_type_or_error!(l : el => RlispNum);
                         result -= el;
                     }
                     result.into()
@@ -79,7 +79,7 @@ pub mod math_builtins {
             },
 
             "/" (first &rest nums) -> {
-                let mut result = into_type_or_error!(l : first => f64);
+                let mut result = into_type_or_error!(l : first => RlispNum);
 
                 if nums.nilp() {
                     first
@@ -87,42 +87,42 @@ pub mod math_builtins {
                     let nums = into_type_or_error!(l : nums => &ConsCell);
                     #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
                     for el in nums {
-                        let el = into_type_or_error!(l : el => f64);
+                        let el = into_type_or_error!(l : el => RlispNum);
                         result /= el;
                     }
                     result.into()
                 }
             },
             "<" (lesser greater) -> {
-                let lesser = into_type_or_error!(l : lesser => f64);
-                let greater = into_type_or_error!(l : greater => f64);
+                let lesser = into_type_or_error!(l : lesser => RlispNum);
+                let greater = into_type_or_error!(l : greater => RlispNum);
                 (lesser < greater).into()
             },
             "<=" (lesser greater) -> {
-                let lesser = into_type_or_error!(l : lesser => f64);
-                let greater = into_type_or_error!(l : greater => f64);
+                let lesser = into_type_or_error!(l : lesser => RlispNum);
+                let greater = into_type_or_error!(l : greater => RlispNum);
                 (lesser <= greater).into()
             },
             ">" (greater lesser) -> {
-                let lesser = into_type_or_error!(l : lesser => f64);
-                let greater = into_type_or_error!(l : greater => f64);
+                let lesser = into_type_or_error!(l : lesser => RlispNum);
+                let greater = into_type_or_error!(l : greater => RlispNum);
                 (greater > lesser).into()
             },
             ">=" (greater lesser) -> {
-                let lesser = into_type_or_error!(l : lesser => f64);
-                let greater = into_type_or_error!(l : greater => f64);
+                let lesser = into_type_or_error!(l : lesser => RlispNum);
+                let greater = into_type_or_error!(l : greater => RlispNum);
                 (greater >= lesser).into()
             },
             "rem" (num divisor) -> {
-                let num = into_type_or_error!(l : num => f64);
-                let divisor = into_type_or_error!(l : divisor => f64);
+                let num = into_type_or_error!(l : num => RlispNum);
+                let divisor = into_type_or_error!(l : divisor => RlispNum);
                 (num % divisor).into()
             },
             "mod" (num modulus) -> {
-                let mut num = into_type_or_error!(l : num => f64);
-                let modulus = into_type_or_error!(l : modulus => f64);
-                if num < 0.0 {
-                    num *= -1.0;
+                let mut num = into_type_or_error!(l : num => RlispNum);
+                let modulus = into_type_or_error!(l : modulus => RlispNum);
+                if num < RlispNum::from(1) {
+                    num *= RlispNum::from(-1);
                 }
                 (num % modulus).into()
             },
@@ -149,13 +149,6 @@ pub mod math_builtins {
                 let num = num.round();
                 debug_assert!(integerp(num));
                 num.into()
-            },
-            "integerp" (num) -> {
-                if let Some(num) = f64::maybe_from(num) {
-                    integerp(num).into()
-                } else {
-                    false.into()
-                }
             },
             "natnump" (num) -> {
                 if let Some(num) = f64::maybe_from(num) {

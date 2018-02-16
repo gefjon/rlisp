@@ -27,7 +27,8 @@ pub trait Evaluator
         let res = match input.what_type() {
             RlispType::Sym => unsafe { self.get_symbol(<*const Symbol>::from_unchecked(input)) },
             RlispType::Cons => self.eval_list(unsafe { <&ConsCell>::from_unchecked(input) }),
-            RlispType::Num
+            RlispType::Number
+            | RlispType::Float
             | RlispType::Integer
             | RlispType::Bool
             | RlispType::String

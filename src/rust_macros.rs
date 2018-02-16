@@ -123,19 +123,19 @@ macro_rules! into_type_or_option_error {
 
 macro_rules! arg_in_list {
     ($arg:ident) => {
-        String::from(stringify!($arg))
+        stringify!($arg).as_bytes()
     };
     (($arg:ident $_ty:ty)) => {
-        String::from(stringify!($arg))
+        stringify!($arg).as_bytes()
     };
 }
 
 macro_rules! arglist {
     ($($arg:ident)* &optional $($oarg:tt)+) => {
         {
-            let mut arglist = Vec::new();
+            let mut arglist: $crate::builtins::Arglist = Vec::new();
             $(arglist.push(arg_in_list!($arg));)*;
-            arglist.push(String::from("&optional"));
+            arglist.push(b"&optional");
             $(arglist.push(arg_in_list!($oarg));)+;
             arglist
         }
@@ -143,16 +143,16 @@ macro_rules! arglist {
     ($($arg:ident)* &rest $($rarg:tt)+) => {
         // Only special forms get to have multiple `&rest` args
         {
-            let mut arglist = Vec::new();
+            let mut arglist: $crate::builtins::Arglist = Vec::new();
             $(arglist.push(arg_in_list!($arg));)*;
-            arglist.push(String::from("&rest"));
+            arglist.push(b"&rest");
             $(arglist.push(arg_in_list!($rarg));)+;
             arglist
         }
     };
     ($($arg:ident)+) => {
         {
-            let mut arglist = Vec::new();
+            let mut arglist: $crate::builtins::Arglist = Vec::new();
             $(arglist.push(arg_in_list!($arg));)*;
             arglist
         }
@@ -237,7 +237,7 @@ macro_rules! builtin_function {
         {
             {
               (
-                String::from($name),
+                <::std::convert::AsRef<[u8]>>::as_ref(&$name),
                 arglist!($($arg )*),
                 Box::new(move |$l, _n_args| {
                     get_args!($l ; _n_args ; $($arg)*);
@@ -254,7 +254,7 @@ macro_rules! special_form {
         {
             {
                 (
-                    String::from($name),
+                    <::std::convert::AsRef<[u8]>>::as_ref(&$name),
                     arglist!($($arg)*),
                     Box::new(move |$l| {
                         $blk
@@ -295,7 +295,10 @@ macro_rules! builtin_vars {
         $($name:tt = $val:expr),* $(,)*
     ) => {{
         let mut v: $crate::builtins::RlispBuiltinVars = Vec::new();
-        $(v.push((String::from($name), $crate::types::into_object::IntoObject::from($val)));)*;
+        $(v.push((
+            <::std::convert::AsRef<[u8]>>::as_ref(&$name),
+            $crate::types::into_object::IntoObject::from($val)
+        ));)*;
         v
     }};
 }

@@ -17,8 +17,8 @@ use types::conversions::*;
 
 pub type RlispBuiltinFunc = FnMut(&mut lisp::Lisp, i32) -> Object;
 pub type RlispSpecialForm = FnMut(&mut lisp::Lisp) -> Object;
-pub type Arglist = Vec<String>;
-pub type Name = String;
+pub type Name = &'static [u8];
+pub type Arglist = Vec<Name>;
 pub type RlispBuiltinTuple = (Name, Arglist, Box<RlispBuiltinFunc>);
 pub type RlispSpecialForms = Vec<(Name, Arglist, Box<RlispSpecialForm>)>;
 pub type RlispBuiltins = Vec<RlispBuiltinTuple>;
@@ -281,7 +281,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
                             "{} is not a type designator",
                             unsafe { &*type_name }
                         ));
-                        let e_kind = l.alloc_sym("type-designator-error");
+                        let e_kind = l.alloc_sym(b"type-designator-error");
                         let e = RlispError::custom(e_kind, e_str);
                         for _ in 0..n_args {
                             l.pop();
@@ -385,6 +385,8 @@ pub fn make_builtins() -> RlispBuiltins {
     builtin_functions!{
         l = lisp;
         "numberp" (n) -> { n.numberp().into() },
+        "integerp" (n) -> { n.integerp().into() },
+        "floatp" (n) -> { n.floatp().into() },
         "consp" (c) -> { c.consp().into() },
         "cons" (car cdr) -> { l.alloc(ConsCell::new(car, cdr)) },
         "list" (&rest items) -> { items },

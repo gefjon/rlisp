@@ -1,8 +1,8 @@
 #![feature(allocator_api)]
 #![feature(alloc)]
-#![feature(unique)]
-#![feature(trace_macros)]
-#![feature(log_syntax)]
+#![feature(core_private_diy_float)]
+#![feature(core_private_bignum)]
+#![feature(core_float)]
 #![recursion_limit = "1024"]
 
 #[macro_use]
@@ -13,17 +13,22 @@ extern crate log;
 
 extern crate alloc;
 
+extern crate core;
+
 mod result {
     error_chain! {
         foreign_links {
             Io(::std::io::Error);
             Fmt(::std::fmt::Error);
-            ParseFloat(::std::num::ParseFloatError);
             ParseInt(::std::num::ParseIntError);
             Utf8(::std::string::FromUtf8Error);
             StrUtf8(::std::str::Utf8Error);
         }
         errors {
+            ParseFloat {
+                description("something went wrong while parsing a float"),
+                display("something went wrong while parsing a float"),
+            }
             UnclosedList {
                 description("met EOF before a list was closed"),
                 display("met EOF before a list was closed"),

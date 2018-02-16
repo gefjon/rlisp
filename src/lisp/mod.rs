@@ -45,12 +45,12 @@ pub mod stack_storage {
 
 pub mod allocate;
 
-const INITIAL_MACRO_CHARS: &[(u8, &str)] = &[(b'\'', "quote")];
+const INITIAL_MACRO_CHARS: &[(u8, &[u8])] = &[(b'\'', b"quote")];
 
 pub struct Lisp {
     pub symbols: Scope,
-    pub syms_in_memory: HashMap<String, *const Symbol>,
-    macro_chars: HashMap<u8, &'static str>,
+    pub syms_in_memory: HashMap<Vec<u8>, *const Symbol>,
+    macro_chars: HashMap<u8, &'static [u8]>,
     pub stack: Vec<Object>,
     pub current_gc_mark: ::gc::GcMark,
     pub alloced_objects: Vec<Object>,
@@ -103,10 +103,8 @@ impl Lisp {
     fn source_builtin_vars(&mut self, mut builtin_vars: builtins::RlispBuiltinVars) {
         info!("sourcing builtin vars");
         for (name, val) in builtin_vars.drain(..) {
-            debug!("sourcing var {}", name);
-            let sym = self.make_symbol(name.clone());
+            let sym = self.make_symbol(name);
             let obj = self.convert_into_object(val);
-            debug!("{} has value {}", name, obj);
             self.set_symbol(sym, obj)
         }
     }
@@ -125,7 +123,7 @@ impl Default for Lisp {
             alloced_objects: Vec::new(),
             gc_threshold: 16,
         };
-        let global_namespace_name = me.alloc_sym("global-namespace");
+        let global_namespace_name = me.alloc_sym(b"global-namespace");
         let global_namespace = me.alloc(Namespace::default().with_name(global_namespace_name));
         let global_namespace = unsafe { <*mut Namespace>::from_unchecked(global_namespace) };
         me.push_namespace(global_namespace);

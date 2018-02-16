@@ -23,12 +23,8 @@ pub trait SymbolLookup: AllocObject {
         self.scope_mut().pop();
         debug_assert!(!self.scope().is_empty());
     }
-    fn make_symbol<T>(&mut self, sym: T) -> *const Symbol
-    where
-        String: ::std::convert::From<T>,
-        T: ::std::convert::AsRef<str>,
-    {
-        let sym = String::from(sym);
+    fn make_symbol(&mut self, sym: &[u8]) -> *const Symbol {
+        let sym = Vec::from(sym);
         if self.syms_in_memory().contains_key(&sym) {
             *(self.syms_in_memory().get(&sym).unwrap())
         } else {
@@ -75,40 +71,42 @@ pub trait SymbolLookup: AllocObject {
         debug_assert!(_insert_res.is_none());
     }
     unsafe fn type_from_symbol(&mut self, sym: *const Symbol) -> Option<RlispType> {
-        let sym_name: &str = (*sym).as_ref();
+        let sym_name: &[u8] = (*sym).as_ref();
         match sym_name {
-            "cons" => Some(RlispType::Cons),
-            "number" => Some(RlispType::Num),
-            "symbol" => Some(RlispType::Sym),
-            "string" => Some(RlispType::String),
-            "function" => Some(RlispType::Function),
-            "boolean" => Some(RlispType::Bool),
-            "error" => Some(RlispType::Error),
-            "integer" => Some(RlispType::Integer),
-            "namespace" => Some(RlispType::Namespace),
+            b"cons" => Some(RlispType::Cons),
+            b"number" => Some(RlispType::Number),
+            b"symbol" => Some(RlispType::Sym),
+            b"string" => Some(RlispType::String),
+            b"function" => Some(RlispType::Function),
+            b"boolean" => Some(RlispType::Bool),
+            b"error" => Some(RlispType::Error),
+            b"integer" => Some(RlispType::Integer),
+            b"namespace" => Some(RlispType::Namespace),
+            b"float" => Some(RlispType::Float),
             _ => None,
         }
     }
     fn type_name(&mut self, typ: RlispType) -> Object {
         Object::from(self.make_symbol(match typ {
-            RlispType::Cons => "cons",
-            RlispType::Num => "number",
-            RlispType::Sym => "symbol",
-            RlispType::String => "string",
-            RlispType::Function => "function",
-            RlispType::Bool => "boolean",
-            RlispType::Error => "error",
-            RlispType::Integer => "integer",
-            RlispType::Namespace => "namespace",
+            RlispType::Cons => b"cons",
+            RlispType::Number => b"number",
+            RlispType::Sym => b"symbol",
+            RlispType::String => b"string",
+            RlispType::Function => b"function",
+            RlispType::Bool => b"boolean",
+            RlispType::Error => b"error",
+            RlispType::Integer => b"integer",
+            RlispType::Namespace => b"namespace",
+            RlispType::Float => b"float",
         }))
     }
     fn error_name(&mut self, err: &RlispErrorKind) -> Object {
         Object::from(self.make_symbol(match *err {
-            RlispErrorKind::WrongType { .. } => "wrong-type-error",
-            RlispErrorKind::BadArgsCount { .. } => "wrong-arg-count-error",
-            RlispErrorKind::ImproperList => "improper-list-error",
-            RlispErrorKind::UnboundSymbol { .. } => "unbound-symbol-error",
-            RlispErrorKind::RustError(_) => "internal-error",
+            RlispErrorKind::WrongType { .. } => b"wrong-type-error",
+            RlispErrorKind::BadArgsCount { .. } => b"wrong-arg-count-error",
+            RlispErrorKind::ImproperList => b"improper-list-error",
+            RlispErrorKind::UnboundSymbol { .. } => b"unbound-symbol-error",
+            RlispErrorKind::RustError(_) => b"internal-error",
             RlispErrorKind::Custom { kind, .. } => {
                 return kind;
             }
@@ -119,7 +117,7 @@ pub trait SymbolLookup: AllocObject {
     fn global_symbol_tab(&mut self) -> &mut Namespace {
         unsafe { &mut *(self.scope_mut()[0]) }
     }
-    fn syms_in_memory(&mut self) -> &mut HashMap<String, *const Symbol>;
+    fn syms_in_memory(&mut self) -> &mut HashMap<Vec<u8>, *const Symbol>;
 }
 
 impl SymbolLookup for Lisp {
@@ -129,7 +127,7 @@ impl SymbolLookup for Lisp {
     fn scope_mut(&mut self) -> &mut Scope {
         &mut self.symbols
     }
-    fn syms_in_memory(&mut self) -> &mut HashMap<String, *const Symbol> {
+    fn syms_in_memory(&mut self) -> &mut HashMap<Vec<u8>, *const Symbol> {
         &mut self.syms_in_memory
     }
 }
