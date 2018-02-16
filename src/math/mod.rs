@@ -3,14 +3,13 @@ use types::*;
 pub mod math_builtins {
     use builtins::*;
     use super::*;
-    use types::conversions::MaybeFrom;
     pub fn make_builtins() -> RlispBuiltins {
         builtin_functions!{
             l = lisp;
             "=" (first &rest nums) -> {
                 let first = into_type_or_error!(l : first => RlispNum);
 
-                if nums == Object::nil() {
+                if nums.nilp() {
                     true.into()
                 } else {
                     let nums = into_type_or_error!(l : nums => &ConsCell);
@@ -29,7 +28,7 @@ pub mod math_builtins {
             },
 
             "*" (&rest nums) -> {
-                if nums == Object::nil() {
+                if nums.nilp() {
                     1.into()
                 } else {
                     let mut result = RlispNum::from(1);
@@ -47,7 +46,7 @@ pub mod math_builtins {
             },
 
             "+" (&rest nums) -> {
-                if nums == Object::nil() {
+                if nums.nilp() {
                     0.into()
                 } else {
                     let mut result = RlispNum::from(0);
@@ -62,35 +61,44 @@ pub mod math_builtins {
                 }
             },
 
-            "-" (first &rest nums) -> {
-                let mut result = into_type_or_error!(l : first => RlispNum);
-
+            "-" (&rest nums) -> {
                 if nums.nilp() {
-                    first
+                    0.into()
                 } else {
                     let nums = into_type_or_error!(l : nums => &ConsCell);
-                    #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
-                    for el in nums.into_iter() {
-                        let el = into_type_or_error!(l : el => RlispNum);
-                        result -= el;
+                    let mut num = into_type_or_error!(l : nums.car => RlispNum);
+                    if nums.cdr.nilp() {
+                        Object::from(-num)
+                    } else {
+                        let rest = into_type_or_error!(l : nums.cdr => &ConsCell);
+                        #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
+                        for el in rest.into_iter() {
+                            let el = into_type_or_error!(l : el => RlispNum);
+                            num -= el;
+                        }
+                        num.into()
                     }
-                    result.into()
                 }
             },
 
-            "/" (first &rest nums) -> {
-                let mut result = into_type_or_error!(l : first => RlispNum);
-
+            "/" (&rest nums) -> {
                 if nums.nilp() {
-                    first
+                    1.into()
                 } else {
                     let nums = into_type_or_error!(l : nums => &ConsCell);
-                    #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
-                    for el in nums {
-                        let el = into_type_or_error!(l : el => RlispNum);
-                        result /= el;
+                    let mut num = into_type_or_error!(l: nums.car => RlispNum);
+
+                    if nums.cdr.nilp() {
+                        Object::from(RlispNum::from(1) / num)
+                    } else {
+                        let rest = into_type_or_error!(l : nums.cdr => &ConsCell);
+                        #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
+                        for el in rest {
+                            let el = into_type_or_error!(l : el => RlispNum);
+                            num /= el;
+                        }
+                        num.into()
                     }
-                    result.into()
                 }
             },
             "<" (lesser greater) -> {
@@ -127,35 +135,28 @@ pub mod math_builtins {
                 (num % modulus).into()
             },
             "trunc" (num) -> {
-                let num = into_type_or_error!(l : num => f64);
+                let num = into_type_or_error!(l : num => RlispNum);
                 let num = num.trunc();
-                debug_assert!(integerp(num));
                 num.into()
             },
             "floor" (num) -> {
-                let num = into_type_or_error!(l : num => f64);
+                let num = into_type_or_error!(l : num => RlispNum);
                 let num = num.floor();
-                debug_assert!(integerp(num));
                 num.into()
             },
             "ceil" (num) -> {
-                let num = into_type_or_error!(l : num => f64);
+                let num = into_type_or_error!(l : num => RlispNum);
                 let num = num.ceil();
-                debug_assert!(integerp(num));
                 num.into()
             },
             "round" (num) -> {
-                let num = into_type_or_error!(l : num => f64);
+                let num = into_type_or_error!(l : num => RlispNum);
                 let num = num.round();
-                debug_assert!(integerp(num));
                 num.into()
             },
-            "natnump" (num) -> {
-                if let Some(num) = f64::maybe_from(num) {
-                    natnump(num).into()
-                } else {
-                    false.into()
-                }
+            "flatten" (num) -> {
+                let num = into_type_or_error!(l : num => RlispNum);
+                num.try_flatten().into()
             },
         }
     }
@@ -163,14 +164,7 @@ pub mod math_builtins {
 
 #[cfg_attr(feature = "cargo-clippy", allow(float_cmp))]
 pub fn integerp(num: f64) -> bool {
-    (num.trunc() == num) && (num <= f64::from(::std::i32::MAX))
-        && (num >= f64::from(::std::i32::MIN))
-}
-
-#[cfg_attr(feature = "cargo-clippy", allow(float_cmp))]
-pub fn natnump(num: f64) -> bool {
-    (num.trunc() == num) && (num <= f64::from(::std::u32::MAX))
-        && (num >= f64::from(::std::u32::MIN))
+    num.trunc() == num
 }
 
 pub fn oddp(num: i32) -> bool {

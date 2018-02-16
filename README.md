@@ -215,8 +215,14 @@ than strings, as `eq`-comparing strings is undefined behavior. Any objects can b
 
 #### Functions defined in `builtins/mod.rs`:
 
-+ `numberp`
++ `numberp` - the logical union of `integerp` and `floatp`
++ `integerp`
++ `floatp`
 + `consp`
++ `symbolp`
++ `stringp`
++ `functionp`
++ `boolp`
 + `cons`
 + `list`
 + `debug` - prints debug information on the object passed
@@ -254,8 +260,6 @@ than strings, as `eq`-comparing strings is undefined behavior. Any objects can b
 + `+nan+`
 + `+min-integer+`
 + `+max-integer+`
-+ `+min-natnum+`
-+ `+max-natnum+`
 
 
 #### Functions defined in `math/mod.rs`:
@@ -275,5 +279,4 @@ than strings, as `eq`-comparing strings is undefined behavior. Any objects can b
 + `floor`
 + `ceil`
 + `round`
-+ `integerp`
-+ `natnump`
++ `flatten` - tries to coerce floats into ints, but only if they already are ints at heart

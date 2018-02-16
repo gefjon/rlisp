@@ -243,7 +243,7 @@ impl MaybeFrom<Object> for i32 {
     fn maybe_from(obj: Object) -> Option<Self> {
         if obj.integerp() {
             let val = ObjectTag::Integer.untag(obj.0);
-            Some(val as i32)
+            Some(val as u32 as i32)
         } else {
             None
         }

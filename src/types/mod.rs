@@ -147,13 +147,13 @@ impl ObjectTag {
 pub enum RlispType {
     Cons,
     Number,
+    Integer,
     Float,
     Sym,
     String,
     Function,
     Bool,
     Error,
-    Integer,
     Namespace,
 }
 
@@ -467,11 +467,7 @@ impl convert::From<f64> for Object {
 
 impl convert::From<i32> for Object {
     fn from(num: i32) -> Self {
-        // I'm reasonably sure that casting i32 to u64 is a bitwise
-        // cast, which is what we want, but it's possible (and
-        // wouldn't surprise me) that it moves the sign bit to the
-        // high bit (as if casting to an i64), which would be bad.
-        Object(ObjectTag::Integer.tag(num as u64))
+        Object(ObjectTag::Integer.tag(num as u32 as u64))
     }
 }
 

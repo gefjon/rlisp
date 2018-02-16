@@ -1,10 +1,64 @@
 use types::*;
+use math;
 use std::{cmp, convert, ops};
 
 #[derive(Clone, Copy)]
 pub enum RlispNum {
     Int(i32),
     Float(f64),
+}
+
+fn fits_in_an_int(f: f64) -> bool {
+    f <= ::std::i32::MAX as f64 && f >= ::std::i32::MIN as f64
+}
+fn try_flatten_float(f: f64) -> RlispNum {
+    if math::integerp(f) && fits_in_an_int(f) {
+        RlispNum::Int(f as i32)
+    } else {
+        RlispNum::Float(f)
+    }
+}
+
+impl RlispNum {
+    pub fn try_flatten(self) -> Self {
+        if let RlispNum::Float(f) = self {
+            try_flatten_float(f)
+        } else {
+            self
+        }
+    }
+    pub fn trunc(self) -> Self {
+        if let RlispNum::Float(f) = self {
+            let i = f.trunc();
+            try_flatten_float(i)
+        } else {
+            self
+        }
+    }
+    pub fn floor(self) -> Self {
+        if let RlispNum::Float(f) = self {
+            let i = f.floor();
+            try_flatten_float(i)
+        } else {
+            self
+        }
+    }
+    pub fn ceil(self) -> Self {
+        if let RlispNum::Float(f) = self {
+            let i = f.ceil();
+            try_flatten_float(i)
+        } else {
+            self
+        }
+    }
+    pub fn round(self) -> Self {
+        if let RlispNum::Float(f) = self {
+            let i = f.round();
+            try_flatten_float(i)
+        } else {
+            self
+        }
+    }
 }
 
 impl convert::From<f64> for RlispNum {
@@ -92,11 +146,7 @@ impl ops::MulAssign for RlispNum {
 impl ops::Div for RlispNum {
     type Output = Self;
     fn div(self, rhs: Self) -> Self {
-        if let (Some(lhs), Some(rhs)) = (i32::maybe_from(self), i32::maybe_from(rhs)) {
-            RlispNum::Int(lhs / rhs)
-        } else {
-            RlispNum::Float(f64::from(self) / f64::from(rhs))
-        }
+        RlispNum::Float(f64::from(self) / f64::from(rhs))
     }
 }
 

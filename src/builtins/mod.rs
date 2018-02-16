@@ -51,7 +51,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
             let n_args: i32 = unsafe { pop_bubble!(l).into_unchecked() };
             let bindings = pop_bubble!(l);
             let mut body = Vec::with_capacity(n_args as usize - 1);
-            for _i in 0..(n_args - 1) {
+            for _ in 0..(n_args - 1) {
                 let arg = pop_bubble!(l);
                 body.push(arg);
             }
@@ -83,6 +83,9 @@ pub fn make_special_forms() -> RlispSpecialForms {
         "setq" (symbol value &rest symbols values) -> {
             let n_args = unsafe { pop_bubble!(l).into_unchecked() };
             if ::math::oddp(n_args) {
+                for _ in 0..n_args {
+                    let _ = l.pop();
+                }
                 let e: Error = ErrorKind::WantedEvenArgCt.into();
                 let e: RlispError = e.into();
                 l.alloc(e)
@@ -102,22 +105,30 @@ pub fn make_special_forms() -> RlispSpecialForms {
             }
         },
         "quote" (x) -> {
-            let n_args = pop_bubble!(l);
-            if n_args != Object::from(1.0) {
+            let n_args = unsafe { pop_bubble!(l).into_unchecked() };
+            if n_args != 1 {
+                for _ in 0..n_args {
+                    let _ = l.pop();
+                }
+
                 let e: Error =
                     ErrorKind::WrongArgsCount(
-                        unsafe { n_args.into_unchecked() },
+                        n_args,
                         1, Some(1)
                     ).into();
                 let e: RlispError = e.into();
                 l.alloc(e)
             } else {
-                pop_bubble!(l)
+                l.pop()
             }
         },
         "if" (predicate ifclause &rest elseclauses) -> {
             let n_args: i32 = unsafe { pop_bubble!(l).into_unchecked() };
             if n_args < 2 {
+                for _ in 0..n_args {
+                    let _ = l.pop();
+                }
+
                 let e: Error = ErrorKind::WrongArgsCount(n_args, 2, None).into();
                 let e: RlispError = e.into();
                 l.alloc(e)
@@ -384,10 +395,15 @@ pub fn make_special_forms() -> RlispSpecialForms {
 pub fn make_builtins() -> RlispBuiltins {
     builtin_functions!{
         l = lisp;
+        "consp" (c) -> { c.consp().into() },
         "numberp" (n) -> { n.numberp().into() },
         "integerp" (n) -> { n.integerp().into() },
         "floatp" (n) -> { n.floatp().into() },
-        "consp" (c) -> { c.consp().into() },
+        "symbolp" (s) -> { s.symbolp().into() },
+        "stringp" (s) -> { s.stringp().into() },
+        "functionp" (f) -> { f.functionp().into() },
+        "boolp" (b) -> { b.boolp().into() },
+        "namespacep" (n) -> { n.namespacep().into() },
         "cons" (car cdr) -> { l.alloc(ConsCell::new(car, cdr)) },
         "list" (&rest items) -> { items },
         "debug" (obj) -> { println!("{:?}", obj); obj },
