@@ -467,7 +467,20 @@ impl convert::From<f64> for Object {
 
 impl convert::From<i32> for Object {
     fn from(num: i32) -> Self {
-        Object(ObjectTag::Integer.tag(num as u32 as u64))
+        Object(ObjectTag::Integer.tag(u64::from(num as u32)))
+    }
+}
+
+impl<T> convert::From<Option<T>> for Object
+where
+    Object: convert::From<T>,
+{
+    fn from(opt: Option<T>) -> Self {
+        if let Some(t) = opt {
+            Object::from(t)
+        } else {
+            Object::nil()
+        }
     }
 }
 

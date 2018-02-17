@@ -16,7 +16,7 @@ use types::conversions::*;
 // do so sparingly
 
 pub type RlispBuiltinFunc = FnMut(&mut lisp::Lisp, i32) -> Object;
-pub type RlispSpecialForm = FnMut(&mut lisp::Lisp) -> Object;
+pub type RlispSpecialForm = FnMut(&mut lisp::Lisp, i32) -> Object;
 pub type Name = &'static [u8];
 pub type Arglist = Vec<Name>;
 pub type RlispBuiltinTuple = (Name, Arglist, Box<RlispBuiltinFunc>);
@@ -28,17 +28,9 @@ pub fn make_special_forms() -> RlispSpecialForms {
     use evaluator::Evaluator;
     special_forms!{
         l = lisp;
+        a = args;
         "cond" (&rest clauses) -> {
-            let n_args: i32 = unsafe { pop_bubble!(l).into_unchecked() };
-            debug!("called cond with {} args", n_args);
-            let mut clauses = Vec::with_capacity(n_args as _);
-            for _i in 0..n_args {
-                debug!("popping arg {}", _i);
-                let arg = pop_bubble!(l);
-                debug!("arg {} was {}", _i, arg);
-                clauses.push(arg);
-            }
-            for clause in &clauses {
+            for clause in &a {
                 let &ConsCell { car, cdr, .. } = into_type_or_error!(l : *clause => &ConsCell);
                 if bool::from(l.evaluate(car)) {
                     let &ConsCell { car: cdrcar, .. } =  into_type_or_error!(l : cdr => &ConsCell);
@@ -48,20 +40,15 @@ pub fn make_special_forms() -> RlispSpecialForms {
             false.into()
         },
         "let" (bindings &rest body) -> {
-            let n_args: i32 = unsafe { pop_bubble!(l).into_unchecked() };
-            let bindings = pop_bubble!(l);
-            let mut body = Vec::with_capacity(n_args as usize - 1);
-            for _ in 0..(n_args - 1) {
-                let arg = pop_bubble!(l);
-                body.push(arg);
-            }
+            let bindings = a[0];
             let mut scope = Vec::new();
 
             #[cfg_attr(feature = "cargo-clippy", allow(explicit_iter_loop))]
             for binding_pair in into_type_or_error!(l : bindings => &ConsCell).into_iter() {
                 let &ConsCell { car: symbol, cdr, .. } =
                     into_type_or_error!(l : binding_pair => &ConsCell);
-                let &ConsCell { car: value, .. } = into_type_or_error!(l : cdr => &ConsCell);
+                let &ConsCell { car: value, .. } =
+                    into_type_or_error!(l : cdr => &ConsCell);
                 scope.push((
                     into_type_or_error!(l : symbol => *const Symbol),
                     {
@@ -73,7 +60,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
             }
             l.new_scope(&scope);
             let mut res = Object::nil();
-            for body_clause in &body {
+            for body_clause in &a[1..] {
                 res = l.evaluate(*body_clause);
                 bubble!(res);
             }
@@ -81,22 +68,15 @@ pub fn make_special_forms() -> RlispSpecialForms {
             res
         },
         "setq" (symbol value &rest symbols values) -> {
-            let n_args = unsafe { pop_bubble!(l).into_unchecked() };
-            if ::math::oddp(n_args) {
-                for _ in 0..n_args {
-                    let _ = l.pop();
-                }
+            if ::math::oddp(a.len() as _) {
                 let e: Error = ErrorKind::WantedEvenArgCt.into();
                 let e: RlispError = e.into();
                 l.alloc(e)
             } else {
-                let mut n_args: i32 = n_args as _;
                 let mut res = Object::nil();
-                while n_args > 1 {
-                    n_args -= 2;
-                    let sym = pop_bubble!(l);
-                    let value = pop_bubble!(l);
-                    let sym = into_type_or_error!(l : sym => *const Symbol);
+                for i in (0..a.len()).step_by(2) {
+                    let sym = into_type_or_error!(l : a[i] => *const Symbol);
+                    let value = a[i + 1];
                     res = l.evaluate(value);
                     bubble!(res);
                     l.set_symbol(sym, res);
@@ -105,128 +85,76 @@ pub fn make_special_forms() -> RlispSpecialForms {
             }
         },
         "quote" (x) -> {
-            let n_args = unsafe { pop_bubble!(l).into_unchecked() };
-            if n_args != 1 {
-                for _ in 0..n_args {
-                    let _ = l.pop();
-                }
-
+            if a.len() != 1 {
                 let e: Error =
                     ErrorKind::WrongArgsCount(
-                        n_args,
+                        a.len() as _,
                         1, Some(1)
                     ).into();
                 let e: RlispError = e.into();
                 l.alloc(e)
             } else {
-                l.pop()
+                a[0]
             }
         },
         "if" (predicate ifclause &rest elseclauses) -> {
-            let n_args: i32 = unsafe { pop_bubble!(l).into_unchecked() };
-            if n_args < 2 {
-                for _ in 0..n_args {
-                    let _ = l.pop();
-                }
-
-                let e: Error = ErrorKind::WrongArgsCount(n_args, 2, None).into();
-                let e: RlispError = e.into();
-                l.alloc(e)
+            let predicate = a[0];
+            let if_clause = a[1];
+            let else_clauses = &a[2..];
+            if bool::from({
+                let r = l.evaluate(predicate);
+                bubble!(r);
+                r
+            }) {
+                l.evaluate(if_clause)
             } else {
-                let cond = pop_bubble!(l);
-                let if_clause = pop_bubble!(l);
-                let mut else_clauses = Vec::with_capacity(n_args as usize - 2);
-                for _ in 0..(n_args - 2) {
-                    else_clauses.push(pop_bubble!(l));
+                let mut res = Object::nil();
+                for clause in else_clauses {
+                    res = l.evaluate(*clause);
+                    bubble!(res);
                 }
-                if bool::from({
-                    let r = l.evaluate(cond);
-                    bubble!(r);
-                    r
-                }) {
-                    l.evaluate(if_clause)
-                } else {
-                    let mut res = Object::nil();
-                    for clause in &else_clauses {
-                        res = l.evaluate(*clause);
-                    }
-                    res
-                }
+                res
             }
         },
         "defun" (name arglist &rest body) -> {
-            let n_args: i32 = unsafe { pop_bubble!(l).into_unchecked() };
-            if n_args < 3 {
-                let e: Error = ErrorKind::WrongArgsCount(n_args, 3, None).into();
-                let e: RlispError = e.into();
-                l.alloc(e)
-            } else {
-                let name = pop_bubble!(l);
-                let arglist = pop_bubble!(l);
-                let mut body = Vec::with_capacity(n_args as usize - 2);
-                for _ in 0..(n_args - 2) {
-                    body.push(pop_bubble!(l));
-                }
-                let scope = l.symbols.clone();
-                let fun = l.alloc(
-                    RlispFunc::from_body(body)
-                        .with_name(name)
-                        .with_arglist(arglist)
-                        .with_scope(scope)
-                );
-                let name = into_type_or_error!(l : name => *const Symbol);
-                l.set_symbol(name, fun);
-                fun
-            }
+            let name = a[0];
+            let name_sym = into_type_or_error!(l : name => *const Symbol);
+            let arglist = a[1];
+            let body = &a[2..];
+            let scope = l.symbols.clone();
+            let fun = l.alloc(
+                RlispFunc::from_body(body.into())
+                    .with_name(name)
+                    .with_arglist(arglist)
+                    .with_scope(scope)
+            );
+            l.set_symbol(name_sym, fun);
+            fun
         },
         "defvar" (name value) -> {
-            let n_args: i32 = unsafe { pop_bubble!(l).into_unchecked() };
-            if n_args != 2 {
-                let e: Error = ErrorKind::WrongArgsCount(n_args, 2, Some(2)).into();
-                let e: RlispError = e.into();
-                l.alloc(e)
-            } else {
-                let name = pop_bubble!(l);
-                let val = pop_bubble!(l);
-                let val = l.evaluate(val);
-                bubble!(val);
-                let name = into_type_or_error!(l : name => *const Symbol);
-                l.set_symbol(name, val);
-                val
-            }
+            let name = into_type_or_error!(l : a[0] => *const Symbol);
+            let val = a[1];
+            let val = l.evaluate(val);
+            bubble!(val);
+            l.set_symbol(name, val);
+            val
         },
         "catch-error" (statement &rest handlers) -> {
-            let n_args: i32 = unsafe { pop_bubble!(l).into_unchecked() };
-            info!("catch-error: called catch-error");
-            let statement = pop_bubble!(l);
+            let statement = a[0];
 
-            let mut handlers = Vec::with_capacity(n_args as usize - 1);
-            for _ in 0..(n_args - 1) {
-                let arg = pop_bubble!(l);
-                handlers.push(arg);
-            }
-
-            for handler in &handlers {
-                info!("catch-error: with a handler {}", handler);
-            }
+            let handlers = &a[1..];
 
             let res = l.evaluate(statement);
 
-            info!("catch-error: {} evaluated to {}", statement, res);
             if let Some(e) = <Object as MaybeInto<&RlispError>>::maybe_into(res) {
-                info!("catch-error: res is the error {}", e);
                 let e = &e.error;
-                info!("catch-error: e.error = {}", e);
                 let e = l.error_name(e);
-                info!("catch-error: the error is named {}", e);
                 for handler in handlers {
                     let &ConsCell { car, cdr, .. } =
-                        into_type_or_error!(l : handler => &ConsCell);
+                        into_type_or_error!(l : *handler => &ConsCell);
                     if (car == e) || (car == Object::t()) {
-                        info!("catch-error: handler with car {} matched", car);
                         let &ConsCell { car, .. } =
                             into_type_or_error!(l : cdr => &ConsCell);
-                        info!("will eval and return {}", car);
                         return l.evaluate(car);
                     }
                 }
@@ -234,69 +162,42 @@ pub fn make_special_forms() -> RlispSpecialForms {
             res
         },
         "lambda" (args &rest body) -> {
-            let n_args: i32 = unsafe { pop_bubble!(l).into_unchecked() };
-            if n_args < 2 {
-                let e: Error = ErrorKind::WrongArgsCount(n_args, 2, None).into();
-                let e: RlispError = e.into();
+            let arglist = a[0];
+            let body = &a[1..];
+            if (!arglist.nilp()) && (!<&ConsCell as FromObject>::is_type(arglist)) {
+                let e = RlispError::wrong_type(l.type_name(RlispType::Cons),
+                                               l.type_name(arglist.what_type()));
                 l.alloc(e)
             } else {
-                let arglist = pop_bubble!(l);
-                let mut body = Vec::with_capacity(n_args as usize - 1);
-                for _ in 0..(n_args - 1) {
-                    body.push(pop_bubble!(l));
-                }
-                if (!arglist.nilp()) && (!<&ConsCell as FromObject>::is_type(arglist)) {
-                    let e = RlispError::wrong_type(l.type_name(RlispType::Cons),
-                                                   l.type_name(arglist.what_type()));
-                    l.alloc(e)
-                } else {
-                    let scope = l.symbols.clone();
-                    l.alloc(
-                        RlispFunc::from_body(body)
-                            .with_arglist(arglist)
-                            .with_scope(scope)
-                    )
-                }
+                let scope = l.symbols.clone();
+                l.alloc(
+                    RlispFunc::from_body(body.into())
+                        .with_arglist(arglist)
+                        .with_scope(scope)
+                )
             }
         },
         "check-type" (&rest objects typenames) -> {
-            let n_args  = unsafe { pop_bubble!(l).into_unchecked() };
-            if ::math::oddp(n_args) {
-                for _ in 0..n_args {
-                    l.pop();
-                }
+            if ::math::oddp(a.len() as _) {
                 let e: Error = ErrorKind::WantedEvenArgCt.into();
                 let e: RlispError = e.into();
                 l.alloc(e)
             } else {
-                let mut n_args: i32 = n_args as _;
                 let mut res = Object::nil();
-                while n_args > 1 {
-                    n_args -= 2;
-                    let obj = pop_bubble!(l);
-                    let type_name = pop_bubble!(l);
-                    let type_name = into_type_or_error!(l : type_name => *const Symbol);
+                for i in (0..a.len()).step_by(2) {
+                    let obj = a[i];
+                    let type_obj = a[i + 1];
+                    let type_name = into_type_or_error!(l : type_obj => *const Symbol);
                     res = l.evaluate(obj);
                     bubble!(res);
                     if let Some(typ) = unsafe { l.type_from_symbol(type_name) } {
                         if typ != res.what_type() {
                             let e = RlispError::wrong_type(l.type_name(typ),
                                                            l.type_name(res.what_type()));
-                            for _ in 0..n_args {
-                                l.pop();
-                            }
                             return l.alloc(e);
                         }
                     } else {
-                        let e_str = l.alloc_string(&format!(
-                            "{} is not a type designator",
-                            unsafe { &*type_name }
-                        ));
-                        let e_kind = l.alloc_sym(b"type-designator-error");
-                        let e = RlispError::custom(e_kind, e_str);
-                        for _ in 0..n_args {
-                            l.pop();
-                        }
+                        let e = RlispError::not_a_type(type_obj);
                         return l.alloc(e);
                     }
                 }
@@ -304,90 +205,50 @@ pub fn make_special_forms() -> RlispSpecialForms {
             }
         },
         "get" (namespace symbol) -> {
-            let n_args = pop_bubble!(l);
-            if n_args != Object::from(2.0) {
-                l.alloc(RlispError::bad_args_count(
-                    n_args,
-                    Object::from(2.0),
-                    Object::from(2.0)
-                ))
+            let namespace = a[0];
+            let symbol = a[1];
+            bubble!(symbol);
+            let namespace = l.evaluate(namespace);
+            let namespace = into_type_or_error!(l : namespace => &'static Namespace);
+            let symbol = into_type_or_error!(l : symbol => *const Symbol);
+            if let Some(obj) = namespace.get(&symbol) {
+                *obj
             } else {
-                let namespace = l.pop();
-                if <&'static RlispError as FromObject>::is_type(namespace) {
-                    let _ = l.pop();
-                    return namespace;
-                }
-                let symbol = pop_bubble!(l);
-                let namespace = l.evaluate(namespace);
-                bubble!(namespace);
-                let namespace = into_type_or_error!(l : namespace => &'static Namespace);
-                let symbol = into_type_or_error!(l : symbol => *const Symbol);
-                if let Some(obj) = namespace.get(&symbol) {
-                    *obj
-                } else {
-                    l.alloc(RlispError::unbound_symbol(Object::from(symbol)))
-                }
+                l.alloc(RlispError::unbound_symbol(Object::from(symbol)))
             }
         },
         "set" (namespace symbol value) -> {
-            let n_args = pop_bubble!(l);
-            if n_args != Object::from(3.0) {
-                l.alloc(RlispError::bad_args_count(
-                    n_args,
-                    Object::from(3.0),
-                    Object::from(3.0)
-                ))
+            let namespace = a[0];
+            let symbol = a[1];
+            bubble!(symbol);
+            let symbol = into_type_or_error!(l : symbol => *const Symbol);
+            let value = a[1];
+            let namespace = l.evaluate(namespace);
+            bubble!(namespace);
+            let value = l.evaluate(value);
+            bubble!(value);
+            let namespace = into_type_or_error!(l : namespace => &'static mut Namespace);
+            if let Some(obj) = namespace.insert(symbol, value) {
+                obj
             } else {
-                let namespace = l.pop();
-                if <&'static RlispError as FromObject>::is_type(namespace) {
-                    let _ = l.pop();
-                    let _ = l.pop();
-                    return namespace;
-                }
-                let symbol = l.pop();
-                if <&'static RlispError as FromObject>::is_type(symbol) {
-                    let _ = l.pop();
-                    return symbol;
-                }
-                let value = pop_bubble!(l);
-                let namespace = l.evaluate(namespace);
-                bubble!(namespace);
-                let value = l.evaluate(value);
-                bubble!(value);
-                let namespace = into_type_or_error!(l : namespace => &'static mut Namespace);
-                let symbol = into_type_or_error!(l : symbol => *const Symbol);
-                if let Some(obj) = namespace.insert(symbol, value) {
-                    obj
-                } else {
-                    Object::nil()
-                }
+                Object::nil()
             }
         },
         "make-namespace" (&optional name) -> {
-            let n_args = pop_bubble!(l);
-            let arg_ct: i32 = unsafe { n_args.into_unchecked() };
-            if arg_ct > 1 {
-                l.alloc(RlispError::bad_args_count(
-                    n_args,
-                    Object::from(0.0),
-                    Object::from(1.0)
-                ))
+            let name = if a.len() == 1 {
+                Some(a[0])
             } else {
-                let name = if arg_ct == 1 {
-                    Some(pop_bubble!(l))
-                } else {
-                    None
-                };
-                let namespace = Namespace::default()
-                    .with_maybe_name(name);
-                let namespace = l.alloc(namespace);
-                if let Some(name) = name {
-                    if let Some(sym) = <*const Symbol>::maybe_from(name) {
-                        l.set_symbol(sym, namespace);
-                    }
+                None
+            };
+            let namespace = Namespace::default()
+                .with_maybe_name(name);
+            let namespace = l.alloc(namespace);
+            if let Some(name) = name {
+                if let Some(sym) = <*const Symbol>::maybe_from(name) {
+                    l.set_symbol(sym, namespace);
                 }
-                namespace
             }
+            namespace
         },
     }
 }
@@ -450,6 +311,9 @@ pub fn make_builtins() -> RlispBuiltins {
         "unbound-symbol-error" (sym) -> {
             let _ = into_type_or_error!(l : sym => &'static Symbol);
             l.alloc(RlispError::unbound_symbol(sym))
+        },
+        "type-designator-error" (designator) -> {
+            l.alloc(RlispError::not_a_type(designator))
         },
         "error" (kind &rest info) -> {
             l.alloc(RlispError::custom(kind, info))

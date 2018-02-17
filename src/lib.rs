@@ -2,6 +2,7 @@
 #![feature(alloc)]
 #![feature(core_private_diy_float)]
 #![feature(core_private_bignum)]
+#![feature(iterator_step_by)]
 #![feature(core_float)]
 #![recursion_limit = "1024"]
 

@@ -232,6 +232,21 @@ macro_rules! get_args {
     };
 }
 
+macro_rules! get_special_form_args {
+    ($l:ident ; $n_args:ident) => {
+        {
+            let mut a = Vec::with_capacity($n_args as _);
+            for _ in 0..$n_args {
+                a.push($l.pop());
+            }
+            for arg in &a {
+                bubble!(*arg);
+            }
+            a
+        }
+    };
+}
+
 macro_rules! builtin_function {
     ($l:ident ; $name:expr ; ($($arg:tt)*) -> $blk:block) => {
         {
@@ -250,13 +265,14 @@ macro_rules! builtin_function {
 }
 
 macro_rules! special_form {
-    ($l:ident ; $name:expr ; ($($arg:tt)*) -> $blk:block) => {
+    ($l:ident ; $a:ident ; $name:expr ; ($($arg:tt)*) -> $blk:block) => {
         {
             {
                 (
                     <::std::convert::AsRef<[u8]>>::as_ref(&$name),
                     arglist!($($arg)*),
-                    Box::new(move |$l| {
+                    Box::new(move |$l, n_args| {
+                        let $a = get_special_form_args!($l ; n_args);
                         $blk
                     })
                 )
@@ -281,10 +297,11 @@ macro_rules! builtin_functions {
 macro_rules! special_forms {
     (
         $l:tt = lisp;
+        $a:tt = args;
         $($name:tt ($($arg:tt)*) -> $blk:block),* $(,)*
     ) => {{
         let mut v: $crate::builtins::RlispSpecialForms = Vec::new();
-        $(v.push(special_form!{$l ; $name ; ($($arg)*) -> $blk});)*;
+        $(v.push(special_form!{$l ; $a ; $name ; ($($arg)*) -> $blk});)*;
         v
     }};
 }

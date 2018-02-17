@@ -107,6 +107,7 @@ pub trait SymbolLookup: AllocObject {
             RlispErrorKind::ImproperList => b"improper-list-error",
             RlispErrorKind::UnboundSymbol { .. } => b"unbound-symbol-error",
             RlispErrorKind::RustError(_) => b"internal-error",
+            RlispErrorKind::NotAType { .. } => b"type-designator-error",
             RlispErrorKind::Custom { kind, .. } => {
                 return kind;
             }

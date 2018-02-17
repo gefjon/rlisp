@@ -9,7 +9,7 @@ pub enum RlispNum {
 }
 
 fn fits_in_an_int(f: f64) -> bool {
-    f <= ::std::i32::MAX as f64 && f >= ::std::i32::MIN as f64
+    f <= f64::from(::std::i32::MAX) && f >= f64::from(::std::i32::MIN)
 }
 fn try_flatten_float(f: f64) -> RlispNum {
     if math::integerp(f) && fits_in_an_int(f) {

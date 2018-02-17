@@ -20,6 +20,9 @@ impl RlispError {
     pub fn bad_args_count(found: Object, min: Object, max: Object) -> Self {
         Self::from(RlispErrorKind::BadArgsCount { found, min, max })
     }
+    pub fn not_a_type(found: Object) -> Self {
+        Self::from(RlispErrorKind::NotAType { found })
+    }
     pub fn custom(kind: Object, info: Object) -> Self {
         Self::from(RlispErrorKind::Custom { kind, info })
     }
@@ -74,6 +77,9 @@ pub enum RlispErrorKind {
         sym: Object,
     },
     RustError(Error),
+    NotAType {
+        found: Object,
+    },
     Custom {
         kind: Object,
         info: Object,
@@ -108,6 +114,7 @@ impl fmt::Display for RlispErrorKind {
             }
             RlispErrorKind::UnboundSymbol { sym } => write!(f, "symbol {} is unbound", sym),
             RlispErrorKind::RustError(ref e) => write!(f, "INTERNAL: {}", e),
+            RlispErrorKind::NotAType { found } => write!(f, "{} is not a type designator", found),
             RlispErrorKind::Custom { kind, info } => write!(f, "{}: {}", kind, info),
         }
     }

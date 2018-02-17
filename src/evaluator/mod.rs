@@ -54,9 +54,10 @@ pub trait Evaluator
 
         let &ConsCell { car, cdr, .. } = unsafe { &(*c) };
         let car = self.evaluate(car);
+        bubble!(car);
         let func = into_type_or_error!(self : car => &mut RlispFunc);
 
-        if let FunctionBody::SpecialForm(ref mut func) = func.body {
+        if let FunctionBody::SpecialForm(ref mut funcb) = func.body {
             debug!("eval_list(): {} is a special form", car);
             let num_args = if let Some(cons) = cdr.maybe_into() {
                 let mut iter = list::iter(unsafe { self.list_reverse(cons).into_unchecked() });
@@ -80,9 +81,25 @@ pub trait Evaluator
                 0
             };
 
-            debug!("eval_list(): pushing {} as num_args", num_args);
-            self.push(Object::from(num_args as i32));
-            self.call_special_form((*func).as_mut())
+            if let Some(arglist) = func.arglist {
+                if arglist.nilp() && num_args == 0 {
+                    self.call_special_form((*funcb).as_mut(), num_args)
+                } else {
+                    let arglist = into_type_or_error!(self : arglist => &ConsCell);
+                    if self.arglist_compat(arglist, num_args).unwrap() {
+                        self.call_special_form((*funcb).as_mut(), num_args)
+                    } else {
+                        let (min_args, max_args) = self.acceptable_range(arglist).unwrap();
+                        self.alloc(RlispError::bad_args_count(
+                            num_args.into(),
+                            min_args.into(),
+                            max_args.into(),
+                        ))
+                    }
+                }
+            } else {
+                panic!("special forms must have arglists!");
+            }
         } else {
             let num_args = if let Some(cons) = cdr.maybe_into() {
                 let mut iter = list::iter(unsafe { self.list_reverse(cons).into_unchecked() });
@@ -112,7 +129,7 @@ pub trait Evaluator
             self.put_function_scope_and_call(func)
         }
     }
-    fn call_special_form(&mut self, func: &mut RlispSpecialForm) -> Object;
+    fn call_special_form(&mut self, func: &mut RlispSpecialForm, n_args: i32) -> Object;
     fn call_rust_func(&mut self, func: &mut RlispBuiltinFunc, n_args: i32) -> Object;
     // These methods are left up to the implementor because
     // `RlispBuiltinFunc`s take an &mut lisp::Lisp, which is not the
@@ -335,8 +352,8 @@ impl Evaluator for lisp::Lisp {
         debug!("calling a builtin function");
         func(self, n_args)
     }
-    fn call_special_form(&mut self, func: &mut RlispSpecialForm) -> Object {
+    fn call_special_form(&mut self, func: &mut RlispSpecialForm, n_args: i32) -> Object {
         debug!("calling a special form");
-        func(self)
+        func(self, n_args)
     }
 }
