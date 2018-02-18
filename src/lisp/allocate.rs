@@ -68,6 +68,9 @@ pub trait AllocObject {
             mem::align_of::<Symbol>(),
         ).unwrap();
         let pointer = (unsafe { Heap.alloc(layout) }.unwrap()) as *mut Symbol;
+        if pointer.is_null() {
+            panic!("alloc_sym returned a null pointer");
+        }
 
         unsafe {
             ptr::write(pointer as *mut GcMark, 0);
@@ -109,6 +112,9 @@ pub trait AllocObject {
             mem::align_of::<RlispString>(),
         ).unwrap();
         let pointer = (unsafe { Heap.alloc(layout) }.unwrap()) as *mut RlispString;
+        if pointer.is_null() {
+            panic!("alloc_string returned a null pointer");
+        }
 
         unsafe {
             ptr::write(pointer as *mut GcMark, 0);
