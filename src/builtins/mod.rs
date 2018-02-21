@@ -315,12 +315,19 @@ pub fn make_builtins() -> RlispBuiltins {
         "type-designator-error" (designator) -> {
             l.alloc(RlispError::not_a_type(designator))
         },
+        "undefined-symbol-error" (sym) -> {
+            let _ = into_type_or_error!(l : sym => *const Symbol);
+            l.alloc(RlispError::undefined_symbol(sym))
+        },
         "error" (kind &rest info) -> {
             l.alloc(RlispError::custom(kind, info))
         },
         "global-namespace" () -> {
             Object::from(l.symbols[0])
-        }
+        },
+        "type-of" (x) -> {
+            l.type_name(x.what_type())
+        },
     }
 }
 

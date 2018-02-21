@@ -4,6 +4,7 @@
 #![feature(core_private_bignum)]
 #![feature(iterator_step_by)]
 #![feature(core_float)]
+#![feature(specialization)]
 #![recursion_limit = "1024"]
 
 #[macro_use]

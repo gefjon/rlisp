@@ -23,6 +23,9 @@ impl RlispError {
     pub fn not_a_type(found: Object) -> Self {
         Self::from(RlispErrorKind::NotAType { found })
     }
+    pub fn undefined_symbol(sym: Object) -> Self {
+        Self::from(RlispErrorKind::UndefinedSymbol { sym })
+    }
     pub fn custom(kind: Object, info: Object) -> Self {
         Self::from(RlispErrorKind::Custom { kind, info })
     }
@@ -84,6 +87,9 @@ pub enum RlispErrorKind {
         kind: Object,
         info: Object,
     },
+    UndefinedSymbol {
+        sym: Object,
+    },
 }
 
 impl RlispErrorKind {
@@ -116,6 +122,7 @@ impl fmt::Display for RlispErrorKind {
             RlispErrorKind::RustError(ref e) => write!(f, "INTERNAL: {}", e),
             RlispErrorKind::NotAType { found } => write!(f, "{} is not a type designator", found),
             RlispErrorKind::Custom { kind, info } => write!(f, "{}: {}", kind, info),
+            RlispErrorKind::UndefinedSymbol { sym } => write!(f, "symbol {} is undefined", sym),
         }
     }
 }

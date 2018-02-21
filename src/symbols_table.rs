@@ -37,6 +37,18 @@ pub trait SymbolLookup: AllocObject {
             new_symbol
         }
     }
+    fn sym_ref(&mut self, sym: *const Symbol) -> Place {
+        for table in self.scope_mut() {
+            let table = unsafe { &mut **table };
+            if table.contains_key(&sym) {
+                return Place::from(table.get_mut(&sym).unwrap() as *mut Object);
+            }
+        }
+        let _insert_res = self.global_symbol_tab().insert(sym, Object::nil());
+        debug_assert!(_insert_res.is_none());
+        Place::from(self.global_symbol_tab().get_mut(&sym).unwrap() as *mut Object)
+    }
+
     unsafe fn get_symbol(&mut self, sym: *const Symbol) -> Object {
         let sym_name: &[u8] = (&*sym).as_ref();
         if sym_name == b"nil" {
@@ -83,6 +95,7 @@ pub trait SymbolLookup: AllocObject {
             b"integer" => Some(RlispType::Integer),
             b"namespace" => Some(RlispType::Namespace),
             b"float" => Some(RlispType::Float),
+            b"place" => Some(RlispType::Place),
             _ => None,
         }
     }
@@ -98,6 +111,7 @@ pub trait SymbolLookup: AllocObject {
             RlispType::Integer => b"integer",
             RlispType::Namespace => b"namespace",
             RlispType::Float => b"float",
+            RlispType::Place => b"place",
         }))
     }
     fn error_name(&mut self, err: &RlispErrorKind) -> Object {
@@ -108,6 +122,7 @@ pub trait SymbolLookup: AllocObject {
             RlispErrorKind::UnboundSymbol { .. } => b"unbound-symbol-error",
             RlispErrorKind::RustError(_) => b"internal-error",
             RlispErrorKind::NotAType { .. } => b"type-designator-error",
+            RlispErrorKind::UndefinedSymbol { .. } => b"undefined-symbol-error",
             RlispErrorKind::Custom { kind, .. } => {
                 return kind;
             }

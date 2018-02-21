@@ -18,15 +18,18 @@ pub trait Evaluator
     : SymbolLookup + lisp::stack_storage::Stack + gc::GarbageCollector + list::ListOps
     {
     fn evaluate(&mut self, input: Object) -> Object {
-        debug!("evaluating {}", input);
+        info!("evaluating {}", input);
         debug!(
             "evaluate(): pushing {} to the stack so it doesn't get gc'd",
             input
         );
         self.push(input); // push `input` to the stack so that the gc doesn't get rid of it
         let res = match input.what_type() {
-            RlispType::Sym => unsafe { self.get_symbol(<*const Symbol>::from_unchecked(input)) },
+            RlispType::Sym => {
+                Object::from(unsafe { self.sym_ref(<*const Symbol>::from_unchecked(input)) })
+            }
             RlispType::Cons => self.eval_list(unsafe { <&ConsCell>::from_unchecked(input) }),
+            RlispType::Place => self.evaluate(*unsafe { Place::from_unchecked(input) }),
             RlispType::Number
             | RlispType::Float
             | RlispType::Integer
@@ -37,7 +40,7 @@ pub trait Evaluator
             | RlispType::Namespace => input,
         };
         self.gc_maybe_pass();
-        debug!("{} evaluated to {}", input, res);
+        info!("{} evaluated to {}", input, res);
         let _popped = self.pop();
         debug!(
             "evaluate(): popped {} from the stack as we have finished evaluating it",
@@ -54,11 +57,12 @@ pub trait Evaluator
 
         let &ConsCell { car, cdr, .. } = unsafe { &(*c) };
         let car = self.evaluate(car);
+
         bubble!(car);
+
         let func = into_type_or_error!(self : car => &mut RlispFunc);
 
         if let FunctionBody::SpecialForm(ref mut funcb) = func.body {
-            debug!("eval_list(): {} is a special form", car);
             let num_args = if let Some(cons) = cdr.maybe_into() {
                 let mut iter = list::iter(unsafe { self.list_reverse(cons).into_unchecked() });
                 let mut num_args: i32 = 0;

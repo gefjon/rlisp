@@ -158,6 +158,10 @@ pub mod math_builtins {
                 let num = into_type_or_error!(l : num => RlispNum);
                 num.try_flatten().into()
             },
+            "abs" (n) -> {
+                let num = into_type_or_error!(l : n => RlispNum);
+                num.abs().into()
+            },
         }
     }
 }

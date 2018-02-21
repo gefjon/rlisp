@@ -47,11 +47,16 @@ pub mod into_object;
 pub mod num;
 pub use self::num::RlispNum;
 
+pub mod places;
+pub use self::places::Place;
+
 ///  Any NaN has these bits set
 const NAN_MASK: u64 = 0b111_1111_1111 << 52;
 
 /// `x86_64` pointers always fit in 48 bits; this is used in a `debug_assert`
 const _MAX_PTR: u64 = 1 << 48;
+
+const _MAX_IMMEDIATE: u64 = 1 << 32;
 
 /// for type-checking Objects
 const OBJECT_TAG_MASK: u64 = 0b1111 << 48;
@@ -90,11 +95,10 @@ enum ObjectTag {
     /// *const Namespace / *mut Namespace
     Namespace,
 
-    /// i32
-    Integer,
+    /// An immediate value; see `ImmediateTag`
+    Immediate,
 
-    /// bool
-    Bool,
+    Place,
 }
 
 impl convert::From<ObjectTag> for u64 {
@@ -141,6 +145,32 @@ impl ObjectTag {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum ImmediateTag {
+    Bool,
+    Integer,
+}
+
+impl convert::From<ImmediateTag> for u64 {
+    fn from(t: ImmediateTag) -> u64 {
+        ((t as u64) << 32)
+    }
+}
+
+impl ImmediateTag {
+    fn tag(self, val: u64) -> u64 {
+        debug_assert!(val < _MAX_IMMEDIATE);
+        ObjectTag::Immediate.tag(u64::from(self) ^ val)
+    }
+    fn is_of_type(self, val: u64) -> bool {
+        ObjectTag::Immediate.is_of_type(val) && (val & (u64::from(self))) == (u64::from(self))
+    }
+    fn untag(self, val: u64) -> u64 {
+        debug_assert!(self.is_of_type(val));
+        ObjectTag::Immediate.untag(val & !(u64::from(self)))
+    }
+}
+
 /// These are simple internally-used typenames and are not ever cast
 /// to a numeric type or used in tagging or any of that crap
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -155,6 +185,7 @@ pub enum RlispType {
     Bool,
     Error,
     Namespace,
+    Place,
 }
 
 impl Object {
@@ -175,12 +206,12 @@ impl Object {
 
     /// returns the object which the symbol `nil` evauluates to
     pub fn nil() -> Self {
-        Object(ObjectTag::Bool.tag(0))
+        Object(ImmediateTag::Bool.tag(0))
     }
 
     /// returns the object which the symbol `t` evaluates to
     pub fn t() -> Self {
-        Object(ObjectTag::Bool.tag(1))
+        Object(ImmediateTag::Bool.tag(1))
     }
 
     /// true if self is a bool. note that any object can be cast to
@@ -188,13 +219,13 @@ impl Object {
     /// but that this method treats only exactly `t` and `nil` as
     /// bools, and returns false for any other Object.
     pub fn boolp(self) -> bool {
-        ObjectTag::Bool.is_of_type(self.0)
+        ImmediateTag::Bool.is_of_type(self.0)
     }
     pub fn numberp(self) -> bool {
         self.floatp() || self.integerp()
     }
     pub fn integerp(self) -> bool {
-        ObjectTag::Integer.is_of_type(self.0)
+        ImmediateTag::Integer.is_of_type(self.0)
     }
     pub fn symbolp(self) -> bool {
         ObjectTag::Sym.is_of_type(self.0)
@@ -225,6 +256,10 @@ impl Object {
 
     pub fn namespacep(self) -> bool {
         ObjectTag::Namespace.is_of_type(self.0)
+    }
+
+    pub fn placep(self) -> bool {
+        ObjectTag::Place.is_of_type(self.0)
     }
 
     /// the logical inverse of casting an Object to bool; true iff
@@ -260,6 +295,8 @@ impl Object {
             RlispType::Error
         } else if self.namespacep() {
             RlispType::Namespace
+        } else if self.placep() {
+            RlispType::Place
         } else {
             unreachable!()
         }
@@ -292,6 +329,7 @@ impl Object {
                 RlispType::Namespace => {
                     <&mut Namespace>::from_unchecked(self).gc_mark(marking);
                 }
+                RlispType::Place => (*(Place::from_unchecked(self))).gc_mark(marking),
             }
         }
     }
@@ -319,6 +357,7 @@ impl Object {
                 RlispType::Namespace => {
                     <&mut Namespace>::from_unchecked(self).should_dealloc(marking)
                 }
+                RlispType::Place => (*(Place::from_unchecked(self))).should_dealloc(marking),
             }
         }
     }
@@ -344,6 +383,7 @@ impl fmt::Display for Object {
                 RlispType::Function => write!(f, "{}", <&RlispFunc>::from_unchecked(*self)),
                 RlispType::Error => write!(f, "{}", <&RlispError>::from_unchecked(*self)),
                 RlispType::Namespace => write!(f, "{}", <&Namespace>::from_unchecked(*self)),
+                RlispType::Place => write!(f, "{}", Place::from_unchecked(*self)),
             }
         }
     }
@@ -369,6 +409,7 @@ impl fmt::Debug for Object {
                 RlispType::Function => write!(f, "{:?}", <&RlispFunc>::from_unchecked(*self)),
                 RlispType::Error => write!(f, "{}", <&RlispError>::from_unchecked(*self)),
                 RlispType::Namespace => write!(f, "{:?}", <&Namespace>::from_unchecked(*self)),
+                RlispType::Place => write!(f, "{:?}", Place::from_unchecked(*self)),
             }
         }
     }
@@ -384,7 +425,7 @@ impl Default for Object {
 impl convert::From<Object> for bool {
     /// all values except `nil` and errors evaluate to true
     fn from(obj: Object) -> bool {
-        !(obj.nilp() && ObjectTag::Error.is_of_type(obj.0))
+        !(obj.nilp() || ObjectTag::Error.is_of_type(obj.0))
     }
 }
 
@@ -467,7 +508,7 @@ impl convert::From<f64> for Object {
 
 impl convert::From<i32> for Object {
     fn from(num: i32) -> Self {
-        Object(ObjectTag::Integer.tag(u64::from(num as u32)))
+        Object(ImmediateTag::Integer.tag(u64::from(num as u32)))
     }
 }
 

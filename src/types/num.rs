@@ -20,6 +20,12 @@ fn try_flatten_float(f: f64) -> RlispNum {
 }
 
 impl RlispNum {
+    pub fn abs(self) -> Self {
+        match self {
+            RlispNum::Float(f) => Self::from(f.abs()),
+            RlispNum::Int(i) => Self::from(i.abs()),
+        }
+    }
     pub fn try_flatten(self) -> Self {
         if let RlispNum::Float(f) = self {
             try_flatten_float(f)
@@ -233,7 +239,7 @@ impl MaybeFrom<Object> for RlispNum {
         if obj.floatp() {
             Some(RlispNum::Float(f64::from_bits(obj.0)))
         } else if obj.integerp() {
-            Some(RlispNum::Int(ObjectTag::Integer.untag(obj.0) as i32))
+            Some(RlispNum::Int(ImmediateTag::Integer.untag(obj.0) as i32))
         } else {
             None
         }

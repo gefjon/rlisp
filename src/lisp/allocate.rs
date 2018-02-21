@@ -29,9 +29,11 @@ pub trait AllocObject {
         use types::conversions::FromUnchecked;
         // deallocate an object
         match to_dealloc.what_type() {
-            RlispType::Number | RlispType::Float | RlispType::Integer | RlispType::Bool => {
-                warn!("attempt to dealloc a by-value object")
-            }
+            RlispType::Number
+            | RlispType::Float
+            | RlispType::Integer
+            | RlispType::Bool
+            | RlispType::Place => warn!("attempt to dealloc a by-value object"),
             RlispType::Cons => {
                 self.low_level_dealloc(<*const ConsCell>::from_unchecked(to_dealloc))
             }
