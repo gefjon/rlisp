@@ -14,6 +14,15 @@ pub trait FromObject {
     fn is_type(obj: Object) -> bool {
         Self::rlisp_type() == obj.what_type()
     }
+    fn is_type_or_place(obj: Object) -> bool {
+        Self::is_type(obj) || {
+            if let Some(place) = Place::maybe_from(obj) {
+                Self::is_type(*place)
+            } else {
+                false
+            }
+        }
+    }
 }
 
 /// Like From, but marked unsafe. In Rlisp, this is used for places

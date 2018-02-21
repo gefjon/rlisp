@@ -24,6 +24,8 @@ pub type RlispSpecialForms = Vec<(Name, Arglist, Box<RlispSpecialForm>)>;
 pub type RlispBuiltins = Vec<RlispBuiltinTuple>;
 pub type RlispBuiltinVars = Vec<(Name, IntoObject)>;
 
+/// returns the `RlispSpecialForms` used by Rlisp. This is basic
+/// language functionality.
 pub fn make_special_forms() -> RlispSpecialForms {
     use evaluator::Evaluator;
     special_forms!{
@@ -277,18 +279,23 @@ pub fn make_special_forms() -> RlispSpecialForms {
     }
 }
 
+/// Returns the `RlispBuiltinFunctions` used by Rlisp which don't fit
+/// better in `math::make_builtins`. Many of these functions relate to
+/// type-checking, debugging, and basically anything that doesn't
+/// operate exclusively on numbers.
 pub fn make_builtins() -> RlispBuiltins {
     builtin_functions!{
         l = lisp;
-        "consp" (c) -> { c.consp().into() },
-        "numberp" (n) -> { n.numberp().into() },
-        "integerp" (n) -> { n.integerp().into() },
-        "floatp" (n) -> { n.floatp().into() },
-        "symbolp" (s) -> { s.symbolp().into() },
-        "stringp" (s) -> { s.stringp().into() },
-        "functionp" (f) -> { f.functionp().into() },
-        "boolp" (b) -> { b.boolp().into() },
-        "namespacep" (n) -> { n.namespacep().into() },
+        "consp" (c) -> { <&ConsCell>::is_type_or_place(c).into() },
+        "numberp" (n) -> { RlispNum::is_type_or_place(n).into() },
+        "integerp" (n) -> { i32::is_type_or_place(n).into() },
+        "floatp" (n) -> { f64::is_type_or_place(n).into() },
+        "symbolp" (s) -> { <&Symbol>::is_type_or_place(s).into() },
+        "stringp" (s) -> { <&RlispString>::is_type_or_place(s).into() },
+        "functionp" (f) -> { <&RlispFunc>::is_type_or_place(f).into() },
+        "boolp" (b) -> { bool::is_type_or_place(b).into() },
+        "namespacep" (n) -> { <&Namespace>::is_type_or_place(n).into() },
+        "placep" (p) -> { Place::is_type(p).into() },
         "cons" (car cdr) -> { l.alloc(ConsCell::new(car, cdr)) },
         "list" (&rest items) -> { items },
         "debug" (obj) -> { println!("{:?}", obj); obj },

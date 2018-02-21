@@ -57,6 +57,9 @@ impl FromObject for Place {
     fn rlisp_type() -> RlispType {
         RlispType::Place
     }
+    fn is_type_or_place(obj: Object) -> bool {
+        Self::is_type(obj)
+    }
 }
 
 impl MaybeFrom<Object> for Place {
