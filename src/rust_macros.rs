@@ -13,10 +13,15 @@ macro_rules! pop_bubble {
 #[macro_export]
 macro_rules! bubble {
     ($obj:expr) => {
-        if <& $crate::types::RlispError as $crate::types::conversions::FromObject>
-            ::is_type($obj) {
-                return $obj;
-            }
+        {
+            let obj = $obj;
+            if <& $crate::types::RlispError as $crate::types::conversions::FromObject>
+                ::is_type(obj) {
+                    return obj;
+                } else {
+                    obj
+                }
+        }
     }
 }
 

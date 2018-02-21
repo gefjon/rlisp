@@ -40,6 +40,10 @@ impl Namespace {
     pub fn get_mut(&mut self, key: &*const Symbol) -> Option<&mut Object> {
         self.table.get_mut(key)
     }
+    pub fn sym_ref(&mut self, sym: *const Symbol) -> Place {
+        let place: &mut Object = self.table.entry(sym).or_insert_with(Object::nil);
+        Place::from(place as *mut Object)
+    }
     pub fn contains_key(&self, key: &*const Symbol) -> bool {
         self.table.contains_key(key)
     }

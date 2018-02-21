@@ -67,6 +67,30 @@ pub fn make_special_forms() -> RlispSpecialForms {
             l.end_scope();
             res
         },
+        "setf" (place value &rest places values) -> {
+            if ::math::oddp(a.len() as _) {
+                let e: Error = ErrorKind::WantedEvenArgCt.into();
+                let e: RlispError = e.into();
+                l.alloc(e)
+            } else {
+                let mut res = Object::nil();
+                for i in (0..a.len()).step_by(2) {
+                    let place = bubble!(l.evaluate(a[i]));
+                    let mut place = into_type_or_error!(l : place => Place);
+                    res = bubble!(l.evaluate(a[i + 1]));
+                    *place = res;
+                }
+                res
+            }
+        },
+        "nref" (namespace symbol) -> {
+            let namespace = bubble!(l.evaluate(a[0]));
+            let namespace = unsafe {
+                &mut *(into_type_or_error!(l : namespace => *mut Namespace))
+            };
+            let sym = into_type_or_error!(l : a[1] => *const Symbol);
+            Object::from(namespace.sym_ref(sym))
+        },
         "setq" (symbol value &rest symbols values) -> {
             if ::math::oddp(a.len() as _) {
                 let e: Error = ErrorKind::WantedEvenArgCt.into();
@@ -327,6 +351,16 @@ pub fn make_builtins() -> RlispBuiltins {
         },
         "type-of" (x) -> {
             l.type_name(x.what_type())
+        },
+        "car" (cons) -> {
+            let cons = into_type_or_error!(l : cons => &mut ConsCell);
+            let car: &mut Object = &mut cons.car;
+            Object::from(Place::from(car as *mut Object))
+        },
+        "cdr" (cons) -> {
+            let cons = into_type_or_error!(l : cons => &mut ConsCell);
+            let cdr: &mut Object = &mut cons.cdr;
+            Object::from(Place::from(cdr as *mut Object))
         },
     }
 }
