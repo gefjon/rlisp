@@ -5,7 +5,7 @@ cells. Higher-level List methods are contained in the module list.
 
 use std::fmt;
 use list;
-use super::Object;
+use super::*;
 use gc::{GarbageCollected, GcMark};
 
 #[derive(Clone)]
@@ -94,5 +94,18 @@ impl fmt::Debug for ConsCell {
 
         write!(f, ")")?;
         Ok(())
+    }
+}
+
+impl FromUnchecked<Object> for *mut ConsCell {
+    unsafe fn from_unchecked(obj: Object) -> *mut ConsCell {
+        debug_assert!(obj.consp());
+        ObjectTag::Cons.untag(obj.0) as _
+    }
+}
+
+impl FromObject for *mut ConsCell {
+    fn rlisp_type() -> RlispType {
+        RlispType::Cons
     }
 }

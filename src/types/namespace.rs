@@ -122,3 +122,16 @@ impl GarbageCollected for Namespace {
         }
     }
 }
+
+impl FromUnchecked<Object> for *mut Namespace {
+    unsafe fn from_unchecked(obj: Object) -> *mut Namespace {
+        debug_assert!(obj.namespacep());
+        ObjectTag::Namespace.untag(obj.0) as *mut Namespace
+    }
+}
+
+impl FromObject for *mut Namespace {
+    fn rlisp_type() -> RlispType {
+        RlispType::Namespace
+    }
+}

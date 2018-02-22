@@ -126,3 +126,16 @@ impl fmt::Display for RlispErrorKind {
         }
     }
 }
+
+impl FromUnchecked<Object> for *mut RlispError {
+    unsafe fn from_unchecked(obj: Object) -> *mut RlispError {
+        debug_assert!(obj.errorp());
+        ObjectTag::Error.untag(obj.0) as *mut RlispError
+    }
+}
+
+impl FromObject for *mut RlispError {
+    fn rlisp_type() -> RlispType {
+        RlispType::Error
+    }
+}

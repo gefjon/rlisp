@@ -1,6 +1,7 @@
 use std::convert;
 use std::{fmt, ops, slice, str};
 use gc::{GarbageCollected, GcMark};
+use types::*;
 
 pub struct RlispString {
     pub gc_marking: GcMark,
@@ -65,5 +66,18 @@ impl convert::AsRef<str> for RlispString {
 impl convert::AsRef<[u8]> for RlispString {
     fn as_ref(&self) -> &[u8] {
         unsafe { slice::from_raw_parts((&self.val) as _, self.len) }
+    }
+}
+
+impl FromUnchecked<Object> for *mut RlispString {
+    unsafe fn from_unchecked(obj: Object) -> *mut RlispString {
+        debug_assert!(obj.stringp());
+        ObjectTag::String.untag(obj.0) as *mut RlispString
+    }
+}
+
+impl FromObject for *mut RlispString {
+    fn rlisp_type() -> RlispType {
+        RlispType::String
     }
 }

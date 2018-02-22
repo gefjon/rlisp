@@ -128,19 +128,6 @@ where
     }
 }
 
-impl FromUnchecked<Object> for *mut ConsCell {
-    unsafe fn from_unchecked(obj: Object) -> *mut ConsCell {
-        debug_assert!(obj.consp());
-        ObjectTag::Cons.untag(obj.0) as _
-    }
-}
-
-impl FromObject for *mut ConsCell {
-    fn rlisp_type() -> RlispType {
-        RlispType::Cons
-    }
-}
-
 impl FromUnchecked<Object> for f64 {
     unsafe fn from_unchecked(obj: Object) -> f64 {
         debug_assert!(obj.floatp());
@@ -151,32 +138,6 @@ impl FromUnchecked<Object> for f64 {
 impl FromObject for f64 {
     fn rlisp_type() -> RlispType {
         RlispType::Float
-    }
-}
-
-impl FromUnchecked<Object> for *mut Symbol {
-    unsafe fn from_unchecked(obj: Object) -> *mut Symbol {
-        debug_assert!(obj.symbolp());
-        ObjectTag::Sym.untag(obj.0) as _
-    }
-}
-
-impl FromObject for *mut Symbol {
-    fn rlisp_type() -> RlispType {
-        RlispType::Sym
-    }
-}
-
-impl FromUnchecked<Object> for *mut RlispString {
-    unsafe fn from_unchecked(obj: Object) -> *mut RlispString {
-        debug_assert!(obj.stringp());
-        ObjectTag::String.untag(obj.0) as *mut RlispString
-    }
-}
-
-impl FromObject for *mut RlispString {
-    fn rlisp_type() -> RlispType {
-        RlispType::String
     }
 }
 
@@ -193,32 +154,6 @@ impl FromObject for i32 {
     }
 }
 
-impl FromUnchecked<Object> for *mut RlispFunc {
-    unsafe fn from_unchecked(obj: Object) -> *mut RlispFunc {
-        debug_assert!(obj.functionp());
-        ObjectTag::Function.untag(obj.0) as *mut RlispFunc
-    }
-}
-
-impl FromObject for *mut RlispFunc {
-    fn rlisp_type() -> RlispType {
-        RlispType::Function
-    }
-}
-
-impl FromUnchecked<Object> for *mut RlispError {
-    unsafe fn from_unchecked(obj: Object) -> *mut RlispError {
-        debug_assert!(obj.errorp());
-        ObjectTag::Error.untag(obj.0) as *mut RlispError
-    }
-}
-
-impl FromObject for *mut RlispError {
-    fn rlisp_type() -> RlispType {
-        RlispType::Error
-    }
-}
-
 impl FromUnchecked<Object> for bool {
     unsafe fn from_unchecked(obj: Object) -> bool {
         debug_assert!(obj.boolp());
@@ -229,19 +164,6 @@ impl FromUnchecked<Object> for bool {
 impl FromObject for bool {
     fn rlisp_type() -> RlispType {
         RlispType::Bool
-    }
-}
-
-impl FromUnchecked<Object> for *mut Namespace {
-    unsafe fn from_unchecked(obj: Object) -> *mut Namespace {
-        debug_assert!(obj.namespacep());
-        ObjectTag::Namespace.untag(obj.0) as *mut Namespace
-    }
-}
-
-impl FromObject for *mut Namespace {
-    fn rlisp_type() -> RlispType {
-        RlispType::Namespace
     }
 }
 

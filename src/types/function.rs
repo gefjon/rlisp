@@ -133,3 +133,16 @@ impl fmt::Debug for FunctionBody {
         }
     }
 }
+
+impl FromUnchecked<Object> for *mut RlispFunc {
+    unsafe fn from_unchecked(obj: Object) -> *mut RlispFunc {
+        debug_assert!(obj.functionp());
+        ObjectTag::Function.untag(obj.0) as *mut RlispFunc
+    }
+}
+
+impl FromObject for *mut RlispFunc {
+    fn rlisp_type() -> RlispType {
+        RlispType::Function
+    }
+}

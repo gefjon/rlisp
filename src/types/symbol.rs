@@ -1,6 +1,7 @@
 use std::{convert, fmt, ops, slice, str};
 use std::cmp::{Eq, PartialEq};
 use gc::{GarbageCollected, GcMark};
+use types::*;
 
 pub struct Symbol {
     pub gc_marking: GcMark,
@@ -71,5 +72,18 @@ impl convert::AsRef<str> for Symbol {
 impl convert::AsRef<[u8]> for Symbol {
     fn as_ref(&self) -> &[u8] {
         unsafe { slice::from_raw_parts((&self.name) as _, self.name_len) }
+    }
+}
+
+impl FromUnchecked<Object> for *mut Symbol {
+    unsafe fn from_unchecked(obj: Object) -> *mut Symbol {
+        debug_assert!(obj.symbolp());
+        ObjectTag::Sym.untag(obj.0) as _
+    }
+}
+
+impl FromObject for *mut Symbol {
+    fn rlisp_type() -> RlispType {
+        RlispType::Sym
     }
 }
