@@ -123,6 +123,7 @@ pub trait SymbolLookup: AllocObject {
             RlispErrorKind::RustError(_) => b"internal-error",
             RlispErrorKind::NotAType { .. } => b"type-designator-error",
             RlispErrorKind::UndefinedSymbol { .. } => b"undefined-symbol-error",
+            RlispErrorKind::IndexOutOfBounds { .. } => b"index-out-of-bounds-error",
             RlispErrorKind::Custom { kind, .. } => {
                 return kind;
             }

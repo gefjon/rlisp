@@ -26,6 +26,9 @@ impl RlispError {
     pub fn undefined_symbol(sym: Object) -> Self {
         Self::from(RlispErrorKind::UndefinedSymbol { sym })
     }
+    pub fn index_out_of_bounds(idx: Object, reciever: Object) -> Self {
+        Self::from(RlispErrorKind::IndexOutOfBounds { idx, reciever })
+    }
     pub fn custom(kind: Object, info: Object) -> Self {
         Self::from(RlispErrorKind::Custom { kind, info })
     }
@@ -90,6 +93,10 @@ pub enum RlispErrorKind {
     UndefinedSymbol {
         sym: Object,
     },
+    IndexOutOfBounds {
+        idx: Object,
+        reciever: Object,
+    },
 }
 
 impl RlispErrorKind {
@@ -123,6 +130,9 @@ impl fmt::Display for RlispErrorKind {
             RlispErrorKind::NotAType { found } => write!(f, "{} is not a type designator", found),
             RlispErrorKind::Custom { kind, info } => write!(f, "{}: {}", kind, info),
             RlispErrorKind::UndefinedSymbol { sym } => write!(f, "symbol {} is undefined", sym),
+            RlispErrorKind::IndexOutOfBounds { idx, reciever } => {
+                write!(f, "{} is not a valid index into {}", idx, reciever)
+            }
         }
     }
 }

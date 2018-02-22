@@ -88,6 +88,14 @@ pub fn iter(list: &ConsCell) -> ConsIterator {
     }
 }
 
+pub fn iter_mut(list: &mut ConsCell) -> ConsIteratorMut {
+    ConsIteratorMut {
+        car: Place::from(&mut list.car),
+        cdr: Place::from(&mut list.cdr),
+        first: true,
+    }
+}
+
 impl<'a> IntoIterator for &'a ConsCell {
     type IntoIter = ConsIterator;
     type Item = Object;
@@ -96,9 +104,23 @@ impl<'a> IntoIterator for &'a ConsCell {
     }
 }
 
+impl<'a> IntoIterator for &'a mut ConsCell {
+    type IntoIter = ConsIteratorMut;
+    type Item = Place;
+    fn into_iter(self) -> Self::IntoIter {
+        iter_mut(self)
+    }
+}
+
 pub struct ConsIterator {
     car: Object,
     cdr: Object,
+    first: bool,
+}
+
+pub struct ConsIteratorMut {
+    car: Place,
+    cdr: Place,
     first: bool,
 }
 
@@ -127,6 +149,26 @@ impl Iterator for ConsIterator {
     }
 }
 
+impl Iterator for ConsIteratorMut {
+    // this implementation of Iterator is not safe for improper (not
+    // nil-terminated) lists - it will discard the final element of
+    // the list, nil or otherwise. For cases where an improper list is
+    // a reasonable input (or where an improper list should signal an
+    // error), use improper_next() instead.
+    type Item = Place;
+    fn next(&mut self) -> Option<Place> {
+        let res = self.improper_next();
+        if let ConsIteratorResult::More(place) = res {
+            Some(place)
+        } else {
+            if let ConsIteratorResult::Final(Some(_)) = res {
+                warn!("used Iterator on an improper list -- use ConsIterator.improper_next() instead!");
+            }
+            None
+        }
+    }
+}
+
 impl ConsIterator {
     pub fn improper_next(&mut self) -> ConsIteratorResult<Object> {
         // this version of next() is safe for improper (not
@@ -141,6 +183,27 @@ impl ConsIterator {
             self.cdr = next.cdr;
             ConsIteratorResult::More(self.car)
         } else if self.cdr.nilp() {
+            ConsIteratorResult::Final(None)
+        } else {
+            ConsIteratorResult::Final(Some(self.cdr))
+        }
+    }
+}
+
+impl ConsIteratorMut {
+    pub fn improper_next(&mut self) -> ConsIteratorResult<Place> {
+        // this version of next() is safe for improper (not
+        // nil-terminated) lists - the Iterator impl will discard the
+        // last element, whereas improper_next() will return it if it
+        // exists, or None if the list is nil-terminated
+        if self.first {
+            self.first = false;
+            ConsIteratorResult::More(self.car)
+        } else if let Some(next) = <&mut ConsCell>::maybe_from(*(self.cdr)) {
+            self.car = Place::from(&mut next.car);
+            self.cdr = Place::from(&mut next.cdr);
+            ConsIteratorResult::More(self.car)
+        } else if (*(self.cdr)).nilp() {
             ConsIteratorResult::Final(None)
         } else {
             ConsIteratorResult::Final(Some(self.cdr))

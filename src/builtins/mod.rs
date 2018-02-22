@@ -350,6 +350,9 @@ pub fn make_builtins() -> RlispBuiltins {
             let _ = into_type_or_error!(l : sym => *const Symbol);
             l.alloc(RlispError::undefined_symbol(sym))
         },
+        "index-out-of-bounds-error" (idx reciever) -> {
+            l.alloc(RlispError::index_out_of_bounds(idx, reciever))
+        },
         "error" (kind &rest info) -> {
             l.alloc(RlispError::custom(kind, info))
         },
@@ -368,6 +371,21 @@ pub fn make_builtins() -> RlispBuiltins {
             let cons = into_type_or_error!(l : cons => &mut ConsCell);
             let cdr: &mut Object = &mut cons.cdr;
             Object::from(Place::from(cdr as *mut Object))
+        },
+        "nth" (list n) -> {
+            let list_cons = into_type_or_error!(l : list => &mut ConsCell);
+            let n_int = into_type_or_error!(l : n => i32);
+            let mut iter = list_cons.into_iter();
+            for _ in 0..n_int {
+                if iter.next().is_none() {
+                    return l.alloc(RlispError::index_out_of_bounds(n, list));
+                }
+            }
+            if let Some(place) = iter.next() {
+                Object::from(place)
+            } else {
+                l.alloc(RlispError::index_out_of_bounds(n, list))
+            }
         },
     }
 }

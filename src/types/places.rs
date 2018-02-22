@@ -1,6 +1,7 @@
 use types::*;
 use std::{borrow, convert, fmt, ops};
 
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Place(*mut Object);
 
 impl borrow::Borrow<Object> for Place {
@@ -37,6 +38,12 @@ impl fmt::Display for Place {
 impl convert::From<*mut Object> for Place {
     fn from(obj: *mut Object) -> Self {
         Place(obj)
+    }
+}
+
+impl<'any> convert::From<&'any mut Object> for Place {
+    fn from(obj: &mut Object) -> Self {
+        Place(obj as *mut Object)
     }
 }
 
