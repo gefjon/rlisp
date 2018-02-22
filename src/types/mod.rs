@@ -188,6 +188,27 @@ pub enum RlispType {
     Place,
 }
 
+impl RlispType {
+    pub fn check_type(self, obj: Object) -> bool {
+        match self {
+            RlispType::Cons => <*const ConsCell>::is_type_or_place(obj),
+            RlispType::Number => RlispNum::is_type_or_place(obj),
+            RlispType::Integer => i32::is_type_or_place(obj),
+            RlispType::Float => f64::is_type_or_place(obj),
+            RlispType::Sym => <*const Symbol>::is_type_or_place(obj),
+            RlispType::String => <*const RlispString>::is_type_or_place(obj),
+            RlispType::Function => <*const RlispFunc>::is_type_or_place(obj),
+            RlispType::Bool => bool::is_type_or_place(obj),
+            RlispType::Error => <*const RlispError>::is_type_or_place(obj),
+            RlispType::Namespace => <*const Namespace>::is_type_or_place(obj),
+            RlispType::Place => {
+                let place = unsafe { Place::from_unchecked(obj) };
+                self.check_type(*place)
+            }
+        }
+    }
+}
+
 impl Object {
     /// The canonical numeric NaN returned by arithmetic ops
     fn the_nan() -> u64 {

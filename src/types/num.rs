@@ -236,10 +236,12 @@ impl cmp::PartialOrd for RlispNum {
 
 impl MaybeFrom<Object> for RlispNum {
     fn maybe_from(obj: Object) -> Option<RlispNum> {
-        if obj.floatp() {
-            Some(RlispNum::Float(f64::from_bits(obj.0)))
-        } else if obj.integerp() {
-            Some(RlispNum::Int(ImmediateTag::Integer.untag(obj.0) as i32))
+        if let Some(f) = f64::maybe_from(obj) {
+            Some(RlispNum::Float(f))
+        } else if let Some(n) = i32::maybe_from(obj) {
+            Some(RlispNum::Int(n))
+        } else if let Some(place) = Place::maybe_from(obj) {
+            RlispNum::maybe_from(*place)
         } else {
             None
         }
@@ -247,6 +249,9 @@ impl MaybeFrom<Object> for RlispNum {
 }
 
 impl FromObject for RlispNum {
+    fn is_type(obj: Object) -> bool {
+        i32::is_type(obj) || f64::is_type(obj)
+    }
     fn rlisp_type() -> RlispType {
         RlispType::Number
     }

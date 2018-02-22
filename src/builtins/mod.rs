@@ -217,7 +217,7 @@ pub fn make_special_forms() -> RlispSpecialForms {
                     res = l.evaluate(obj);
                     bubble!(res);
                     if let Some(typ) = unsafe { l.type_from_symbol(type_name) } {
-                        if typ != res.what_type() {
+                        if !typ.check_type(res) {
                             let e = RlispError::wrong_type(l.type_name(typ),
                                                            l.type_name(res.what_type()));
                             return l.alloc(e);
